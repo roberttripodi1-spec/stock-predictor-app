@@ -1,13 +1,13 @@
-# Stock Predictor Live Headlines
+# Stock Predictor Options Ideas
 
 This version adds:
-- live-updating latest headlines for the chosen ticker
-- a dedicated "Latest headlines" tab
-- ticker-specific news refresh on rerun
-- same cleaner chart layout as the prior version
+- a "Suggested options plays" tab
+- simple call and put ideas for the chosen ticker
+- nearest-expiration options chain lookup
+- strike, premium, breakeven, max risk, open interest, and volume
 
 ## Notes
-Headlines are fetched at runtime from a news RSS feed and cached briefly for performance.
+These are educational research ideas based on the live options chain. They are not personalized investment advice.
 
 ## Deploy
 Replace the repo files with these updated versions and let Streamlit redeploy.
