@@ -373,8 +373,9 @@ def build_projection_chart(summary: pd.DataFrame, current_price: float) -> go.Fi
 
 def build_simple_gauge(title: str, value: float, min_value: float, max_value: float) -> go.Figure:
     fig = go.Figure(go.Indicator(
-        mode="gauge",
+        mode="gauge+number",
         value=value,
+        number={"font":{"size":24},"valueformat":".2f"},
         gauge={
             "axis": {"range": [min_value, max_value]},
             "bar": {"color": "#60a5fa"},
@@ -383,7 +384,7 @@ def build_simple_gauge(title: str, value: float, min_value: float, max_value: fl
         }
     ))
     fig.update_layout(
-        height=120,
+        height=140,
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=2, r=2, t=0, b=0),
