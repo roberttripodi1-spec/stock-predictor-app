@@ -1,7 +1,8 @@
-# Stock Predictor Mobile Details Fix
+# Stock Predictor Indicator Mobile Fix
 
-This version specifically fixes the Details tab on mobile by:
-- stacking the Details layout into one column on phones
-- shrinking gauge/card sizes
-- reducing cramped spacing
-- keeping all restored features intact
+This version fixes the mobile issue in the Details tab by:
+- changing the Indicators area from two side-by-side gauges
+- to clean stacked indicator tabs
+- shrinking the gauge size a bit more for phones
+
+Everything else stays the same.

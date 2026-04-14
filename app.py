@@ -160,7 +160,7 @@ st.markdown("""
     .main .block-container { padding-top: 0.85rem; padding-bottom: 1.5rem; max-width: 1180px; }
     .mobile-stack { display: block; }
     .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
-    .gauge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+    .gauge-grid { display: block; }
 
 
     @media (max-width: 768px) {
@@ -357,7 +357,7 @@ def build_simple_gauge(title: str, value: float, min_value: float, max_value: fl
         mode="gauge+number", value=value, title={"text": title},
         gauge={"axis": {"range": [min_value, max_value]}, "bar": {"color": "#60a5fa"}, "bgcolor": "#111827", "bordercolor": "#223046"}
     ))
-    fig.update_layout(height=150, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=6, r=6, t=24, b=0), font=dict(color="#e5edf8"))
+    fig.update_layout(height=135, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=4, r=4, t=18, b=0), font=dict(color="#e5edf8"))
     return fig
 
 
@@ -450,10 +450,17 @@ with dashboard_tab:
             st.markdown('<div>', unsafe_allow_html=True)
             st.markdown('<div class="section-card">', unsafe_allow_html=True)
             st.subheader("Indicators")
-            st.markdown('<div class="gauge-grid">', unsafe_allow_html=True)
-            st.plotly_chart(build_simple_gauge("RSI", max(0, min(100, safe_attr(result, "rsi_14", 50.0))), 0, 100), use_container_width=True)
-            st.plotly_chart(build_simple_gauge("News Sentiment", max(-1, min(1, safe_attr(result, "sentiment_score", 0.0))), -1, 1), use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            indicator_tabs = st.tabs(["RSI", "News Sentiment"])
+            with indicator_tabs[0]:
+                st.plotly_chart(
+                    build_simple_gauge("RSI", max(0, min(100, safe_attr(result, "rsi_14", 50.0))), 0, 100),
+                    use_container_width=True
+                )
+            with indicator_tabs[1]:
+                st.plotly_chart(
+                    build_simple_gauge("News Sentiment", max(-1, min(1, safe_attr(result, "sentiment_score", 0.0))), -1, 1),
+                    use_container_width=True
+                )
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="section-card">', unsafe_allow_html=True)
