@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import urllib.parse
+import xml.etree.ElementTree as ET
+
 import pandas as pd
 import plotly.graph_objects as go
+import requests
 import streamlit as st
 
 from predictor import generate_projection_chart_data, screen_tickers, train_predict_for_ticker
@@ -9,6 +13,44 @@ from predictor import generate_projection_chart_data, screen_tickers, train_pred
 
 def safe_attr(obj, name, default):
     return getattr(obj, name, default)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_live_headlines(ticker: str, limit: int = 8) -> list[dict]:
+    """
+    Pulls latest headlines for the chosen ticker using Google News RSS.
+    Cached for 15 minutes so the app stays responsive but still refreshes often.
+    """
+    query = urllib.parse.quote(f"{ticker} stock")
+    url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+
+    items = []
+    try:
+        response = requests.get(url, timeout=12)
+        response.raise_for_status()
+
+        root = ET.fromstring(response.content)
+        channel = root.find("channel")
+        if channel is None:
+            return items
+
+        for item in channel.findall("item")[:limit]:
+            title = item.findtext("title", default="").strip()
+            link = item.findtext("link", default="").strip()
+            pub_date = item.findtext("pubDate", default="").strip()
+            source_el = item.find("source")
+            source = source_el.text.strip() if source_el is not None and source_el.text else ""
+            if title:
+                items.append({
+                    "title": title,
+                    "link": link,
+                    "source": source,
+                    "published": pub_date,
+                })
+    except Exception:
+        return []
+
+    return items
 
 
 st.set_page_config(page_title="Stock Predictor", layout="wide")
@@ -64,6 +106,25 @@ st.markdown("""
         border: 1px solid #314158;
         color: #e5edf8;
         font-size: .84rem;
+    }
+
+    .headline-card {
+        padding: .8rem .9rem;
+        border: 1px solid #223046;
+        border-radius: 12px;
+        background: #0f172a;
+        margin-bottom: .6rem;
+    }
+
+    .headline-source {
+        color: #93c5fd;
+        font-size: .82rem;
+        font-weight: 600;
+    }
+
+    .headline-time {
+        color: #94a3b8;
+        font-size: .8rem;
     }
 
     [data-testid="stMetric"] {
@@ -171,28 +232,14 @@ def build_candlestick_chart(hist: pd.DataFrame, result) -> go.Figure:
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#0f172a",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            x=0,
-            bgcolor="rgba(0,0,0,0)"
-        ),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, bgcolor="rgba(0,0,0,0)"),
         margin=dict(l=20, r=20, t=55, b=20),
         font=dict(color="#e5edf8"),
         hovermode="x unified",
     )
 
-    fig.update_xaxes(
-        showgrid=False,
-        zeroline=False,
-        title=None,
-    )
-    fig.update_yaxes(
-        gridcolor="rgba(148,163,184,0.12)",
-        zeroline=False,
-        title=None,
-    )
+    fig.update_xaxes(showgrid=False, zeroline=False, title=None)
+    fig.update_yaxes(gridcolor="rgba(148,163,184,0.12)", zeroline=False, title=None)
     return fig
 
 
@@ -242,13 +289,7 @@ def build_projection_chart(summary: pd.DataFrame, current_price: float) -> go.Fi
         margin=dict(l=20, r=20, t=55, b=20),
         font=dict(color="#e5edf8"),
         hovermode="x unified",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            x=0,
-            bgcolor="rgba(0,0,0,0)"
-        ),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, bgcolor="rgba(0,0,0,0)"),
     )
     fig.update_xaxes(showgrid=False, zeroline=False, title=None)
     fig.update_yaxes(gridcolor="rgba(148,163,184,0.12)", zeroline=False, title=None)
@@ -278,7 +319,7 @@ def build_simple_gauge(title: str, value: float, min_value: float, max_value: fl
 
 
 st.title("Stock Predictor")
-st.caption("A cleaner stock dashboard with ranked tickers, simpler charts, projection ranges, and quick trading cues.")
+st.caption("A cleaner stock dashboard with ranked tickers, simpler charts, live headlines, projection ranges, and quick trading cues.")
 
 with st.sidebar:
     st.header("Inputs")
@@ -317,6 +358,7 @@ if run:
 
     result = train_predict_for_ticker(focus, period=period, threshold=threshold)
     summary, _ = generate_projection_chart_data(result, forecast_days=forecast_days, n_sims=n_sims)
+    live_headlines = fetch_live_headlines(focus, limit=8)
 
     left, right = st.columns([1, 2])
 
@@ -365,7 +407,7 @@ if run:
         st.plotly_chart(build_candlestick_chart(result.history, result), use_container_width=True)
         st.plotly_chart(build_projection_chart(summary, safe_attr(result, "latest_close", 0.0)), use_container_width=True)
 
-        tabs = st.tabs(["Summary", "Headlines", "Feature importance"])
+        tabs = st.tabs(["Summary", "Latest headlines", "Feature importance"])
 
         with tabs[0]:
             notes = []
@@ -379,12 +421,27 @@ if run:
                 st.write(f"- {note}")
 
         with tabs[1]:
-            headlines = safe_attr(result, "headlines", [])
-            if headlines:
-                for headline in headlines[:8]:
-                    st.write(f"- {headline}")
+            if live_headlines:
+                st.caption(f"Latest headlines for {focus}. Refresh or rerun later for newer items.")
+                for item in live_headlines:
+                    source = item.get("source", "")
+                    published = item.get("published", "")
+                    title = item.get("title", "")
+                    link = item.get("link", "")
+                    source_line = f"{source} • {published}" if source and published else source or published
+                    st.markdown(
+                        f"""
+                        <div class="headline-card">
+                            <div class="headline-source">{source_line}</div>
+                            <div style="margin-top:.28rem;">
+                                <a href="{link}" target="_blank" style="color:#f8fafc; text-decoration:none; font-weight:600;">{title}</a>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
             else:
-                st.write("No headlines returned by the data source.")
+                st.write("No live headlines were returned right now. Try rerunning in a few minutes.")
 
         with tabs[2]:
             feature_df = pd.DataFrame(safe_attr(result, "top_features", []), columns=["Feature", "Importance"])
@@ -394,6 +451,6 @@ if run:
             else:
                 st.write("No feature importance data available.")
 
-    st.caption("Charts simplified: fewer overlays, cleaner support/resistance lines, and a less busy projection view.")
+    st.caption("Live headlines now refresh for the chosen ticker using a news feed at runtime. Chart layout stays simplified.")
 else:
     st.info("Enter your tickers on the left and click Run.")

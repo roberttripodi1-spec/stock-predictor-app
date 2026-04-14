@@ -4,3 +4,4 @@ scikit-learn
 yfinance
 streamlit
 plotly
+requests
