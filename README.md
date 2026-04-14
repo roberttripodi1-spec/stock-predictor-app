@@ -1,8 +1,7 @@
-# Stock Predictor Indicator Mobile Fix
+# Stock Predictor Clean Indicator Cards
 
-This version fixes the mobile issue in the Details tab by:
-- changing the Indicators area from two side-by-side gauges
-- to clean stacked indicator tabs
-- shrinking the gauge size a bit more for phones
-
-Everything else stays the same.
+This version fixes the mobile indicator layout by:
+- removing the Plotly side number from the gauge
+- stacking RSI and News Sentiment in separate cards
+- showing the value above each gauge as normal text
+- keeping the gauges narrow and mobile-friendly

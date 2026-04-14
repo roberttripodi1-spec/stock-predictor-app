@@ -230,6 +230,25 @@ st.markdown("""
 
     .detail-list { margin: 0; padding-left: 1rem; color: #dbe4f0; line-height: 1.55; }
     .detail-label { color: #93c5fd; font-weight: 700; margin-bottom: .35rem; display: block; }
+    .indicator-card {
+        padding: .6rem .7rem;
+        border: 1px solid #223046;
+        border-radius: 12px;
+        background: #0f172a;
+        margin-bottom: .55rem;
+    }
+    .indicator-title {
+        color: #93c5fd;
+        font-size: .82rem;
+        font-weight: 700;
+        margin-bottom: .15rem;
+    }
+    .indicator-value {
+        color: #f8fafc;
+        font-size: 1rem;
+        font-weight: 800;
+        margin-bottom: .2rem;
+    }
 
     .mover-link {
         display: inline-block;
@@ -354,10 +373,22 @@ def build_projection_chart(summary: pd.DataFrame, current_price: float) -> go.Fi
 
 def build_simple_gauge(title: str, value: float, min_value: float, max_value: float) -> go.Figure:
     fig = go.Figure(go.Indicator(
-        mode="gauge+number", value=value, title={"text": title},
-        gauge={"axis": {"range": [min_value, max_value]}, "bar": {"color": "#60a5fa"}, "bgcolor": "#111827", "bordercolor": "#223046"}
+        mode="gauge",
+        value=value,
+        gauge={
+            "axis": {"range": [min_value, max_value]},
+            "bar": {"color": "#60a5fa"},
+            "bgcolor": "#111827",
+            "bordercolor": "#223046",
+        }
     ))
-    fig.update_layout(height=135, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=4, r=4, t=18, b=0), font=dict(color="#e5edf8"))
+    fig.update_layout(
+        height=120,
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=2, r=2, t=0, b=0),
+        font=dict(color="#e5edf8")
+    )
     return fig
 
 
@@ -450,17 +481,28 @@ with dashboard_tab:
             st.markdown('<div>', unsafe_allow_html=True)
             st.markdown('<div class="section-card">', unsafe_allow_html=True)
             st.subheader("Indicators")
-            indicator_tabs = st.tabs(["RSI", "News Sentiment"])
-            with indicator_tabs[0]:
-                st.plotly_chart(
-                    build_simple_gauge("RSI", max(0, min(100, safe_attr(result, "rsi_14", 50.0))), 0, 100),
-                    use_container_width=True
-                )
-            with indicator_tabs[1]:
-                st.plotly_chart(
-                    build_simple_gauge("News Sentiment", max(-1, min(1, safe_attr(result, "sentiment_score", 0.0))), -1, 1),
-                    use_container_width=True
-                )
+
+            rsi_value = max(0, min(100, safe_attr(result, "rsi_14", 50.0)))
+            sentiment_value = max(-1, min(1, safe_attr(result, "sentiment_score", 0.0)))
+
+            st.markdown('<div class="indicator-card">', unsafe_allow_html=True)
+            st.markdown('<div class="indicator-title">RSI</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="indicator-value">{rsi_value:.1f}</div>', unsafe_allow_html=True)
+            st.plotly_chart(
+                build_simple_gauge("RSI", rsi_value, 0, 100),
+                use_container_width=True
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="indicator-card">', unsafe_allow_html=True)
+            st.markdown('<div class="indicator-title">News Sentiment</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="indicator-value">{sentiment_value:.2f}</div>', unsafe_allow_html=True)
+            st.plotly_chart(
+                build_simple_gauge("News Sentiment", sentiment_value, -1, 1),
+                use_container_width=True
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="section-card">', unsafe_allow_html=True)
