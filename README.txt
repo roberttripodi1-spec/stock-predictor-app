@@ -1,1 +1,1 @@
-Paste this CSS inside your main st.markdown(<style>...</style>) block in app.py to force green/red colors.
+Perfect centered gauge number (no side display). Replace build_simple_gauge in app.py.
