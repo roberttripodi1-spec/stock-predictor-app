@@ -1,11 +1,11 @@
-# Stock Predictor Readable Theme
+# Stock Predictor Clean Charts
 
-This version improves readability with:
-- higher-contrast text
-- softer blue-gray background
-- stronger card separation
-- clearer signal colors
-- easier-to-read tables and metrics
+This version simplifies the charts by:
+- removing extra overlays
+- keeping only the 20-day average on price
+- showing just current, support, and resistance lines
+- simplifying the projection band and median path
+- reducing chart clutter overall
 
 ## Deploy
 Replace the repo files with these updated versions and let Streamlit redeploy.

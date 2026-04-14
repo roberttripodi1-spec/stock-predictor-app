@@ -49,29 +49,11 @@ st.markdown("""
         letter-spacing: .02em;
     }
 
-    .signal-buy {
-        background: #0b3b2e;
-        color: #6ee7b7;
-        border-color: #14532d;
-    }
+    .signal-buy { background: #0b3b2e; color: #6ee7b7; border-color: #14532d; }
+    .signal-sell { background: #4c1717; color: #fca5a5; border-color: #7f1d1d; }
+    .signal-watch { background: #5a3b10; color: #fcd34d; border-color: #92400e; }
 
-    .signal-sell {
-        background: #4c1717;
-        color: #fca5a5;
-        border-color: #7f1d1d;
-    }
-
-    .signal-watch {
-        background: #5a3b10;
-        color: #fcd34d;
-        border-color: #92400e;
-    }
-
-    .small-note {
-        color: #a5b4c7;
-        font-size: .92rem;
-        margin-top: .35rem;
-    }
+    .small-note { color: #a5b4c7; font-size: .92rem; margin-top: .35rem; }
 
     .flag {
         padding: .42rem .66rem;
@@ -91,14 +73,8 @@ st.markdown("""
         padding: .65rem .8rem;
     }
 
-    [data-testid="stMetricLabel"] {
-        color: #b8c4d6 !important;
-        font-weight: 600;
-    }
-
-    [data-testid="stMetricValue"] {
-        color: #f8fafc !important;
-    }
+    [data-testid="stMetricLabel"] { color: #b8c4d6 !important; font-weight: 600; }
+    [data-testid="stMetricValue"] { color: #f8fafc !important; }
 
     div[data-testid="stDataFrame"] {
         border: 1px solid #223046;
@@ -107,20 +83,14 @@ st.markdown("""
         background: #111827;
     }
 
-    .stTabs [data-baseweb="tab-list"] {
-        gap: .4rem;
-    }
-
+    .stTabs [data-baseweb="tab-list"] { gap: .4rem; }
     .stTabs [data-baseweb="tab"] {
         background: #162032;
         border-radius: 10px 10px 0 0;
         color: #d9e3f0;
         padding: .45rem .85rem;
     }
-
-    .stTabs [aria-selected="true"] {
-        background: #24324a !important;
-    }
+    .stTabs [aria-selected="true"] { background: #24324a !important; }
 
     section[data-testid="stSidebar"] {
         background: #0f172a;
@@ -134,11 +104,7 @@ st.markdown("""
         border-radius: 10px;
         font-weight: 700;
     }
-
-    .stButton > button:hover {
-        background: #1d4ed8;
-        color: white;
-    }
+    .stButton > button:hover { background: #1d4ed8; color: white; }
 
     .stSelectbox label, .stTextInput label, .stSlider label {
         color: #dbe4f0 !important;
@@ -153,11 +119,15 @@ def signal_class(signal: str) -> str:
 
 
 def build_candlestick_chart(hist: pd.DataFrame, result) -> go.Figure:
-    chart_data = hist.tail(120).copy()
+    chart_data = hist.tail(90).copy()
     chart_data["SMA20"] = chart_data["Close"].rolling(20).mean()
-    chart_data["SMA50"] = chart_data["Close"].rolling(50).mean()
+
+    current_price = safe_attr(result, "latest_close", float(chart_data["Close"].iloc[-1]))
+    support = safe_attr(result, "support_level", float(chart_data["Low"].tail(30).min()))
+    resistance = safe_attr(result, "resistance_level", float(chart_data["High"].tail(30).max()))
 
     fig = go.Figure()
+
     fig.add_trace(go.Candlestick(
         x=chart_data.index,
         open=chart_data["Open"],
@@ -165,43 +135,123 @@ def build_candlestick_chart(hist: pd.DataFrame, result) -> go.Figure:
         low=chart_data["Low"],
         close=chart_data["Close"],
         name="Price",
+        increasing_line_color="#34d399",
+        decreasing_line_color="#f87171",
+        increasing_fillcolor="#34d399",
+        decreasing_fillcolor="#f87171",
     ))
-    fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["SMA20"], mode="lines", name="SMA 20"))
-    fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["SMA50"], mode="lines", name="SMA 50"))
-    fig.add_hline(y=safe_attr(result, "support_level", float(chart_data["Low"].min())), line_dash="dash", annotation_text="Support")
-    fig.add_hline(y=safe_attr(result, "resistance_level", float(chart_data["High"].max())), line_dash="dash", annotation_text="Resistance")
-    fig.add_hline(y=safe_attr(result, "stop_loss", float(chart_data["Low"].min())), line_dash="dot", annotation_text="Stop")
-    fig.add_hline(y=safe_attr(result, "target_1", float(chart_data["High"].max())), line_dash="dot", annotation_text="Target 1")
-    fig.add_hline(y=safe_attr(result, "target_2", float(chart_data["High"].max())), line_dash="dot", annotation_text="Target 2")
+
+    fig.add_trace(go.Scatter(
+        x=chart_data.index,
+        y=chart_data["SMA20"],
+        mode="lines",
+        name="20D Avg",
+        line=dict(color="#60a5fa", width=2),
+    ))
+
+    for y, label, color in [
+        (current_price, "Current", "#cbd5e1"),
+        (support, "Support", "#f59e0b"),
+        (resistance, "Resistance", "#a78bfa"),
+    ]:
+        fig.add_hline(
+            y=y,
+            line_dash="dot",
+            line_color=color,
+            line_width=1.4,
+            annotation_text=label,
+            annotation_position="right",
+            annotation_font_color=color,
+        )
+
     fig.update_layout(
-        title=f"{safe_attr(result, 'ticker', 'Ticker')} Price Chart",
-        height=560,
+        title=f"{safe_attr(result, 'ticker', 'Ticker')} Price",
+        height=500,
         xaxis_rangeslider_visible=False,
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#0f172a",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            x=0,
+            bgcolor="rgba(0,0,0,0)"
+        ),
+        margin=dict(l=20, r=20, t=55, b=20),
         font=dict(color="#e5edf8"),
+        hovermode="x unified",
+    )
+
+    fig.update_xaxes(
+        showgrid=False,
+        zeroline=False,
+        title=None,
+    )
+    fig.update_yaxes(
+        gridcolor="rgba(148,163,184,0.12)",
+        zeroline=False,
+        title=None,
     )
     return fig
 
 
 def build_projection_chart(summary: pd.DataFrame, current_price: float) -> go.Figure:
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=summary.index, y=summary["High Band (90%)"], mode="lines", name="Upper Range"))
-    fig.add_trace(go.Scatter(x=summary.index, y=summary["Low Band (10%)"], mode="lines", name="Lower Range", fill="tonexty"))
-    fig.add_trace(go.Scatter(x=summary.index, y=summary["Median"], mode="lines", name="Median Path"))
-    fig.add_hline(y=current_price, line_dash="dash", annotation_text="Current Price")
+
+    fig.add_trace(go.Scatter(
+        x=summary.index,
+        y=summary["High Band (90%)"],
+        mode="lines",
+        line=dict(color="rgba(96,165,250,0.0)", width=0),
+        name="Upper Range",
+        showlegend=False,
+    ))
+    fig.add_trace(go.Scatter(
+        x=summary.index,
+        y=summary["Low Band (10%)"],
+        mode="lines",
+        fill="tonexty",
+        fillcolor="rgba(96,165,250,0.18)",
+        line=dict(color="rgba(96,165,250,0.0)", width=0),
+        name="Projected Range",
+    ))
+    fig.add_trace(go.Scatter(
+        x=summary.index,
+        y=summary["Median"],
+        mode="lines",
+        name="Median Path",
+        line=dict(color="#60a5fa", width=3),
+    ))
+    fig.add_hline(
+        y=current_price,
+        line_dash="dot",
+        line_color="#cbd5e1",
+        line_width=1.3,
+        annotation_text="Current",
+        annotation_position="right",
+        annotation_font_color="#cbd5e1",
+    )
+
     fig.update_layout(
         title="Projection Range",
-        height=420,
+        height=360,
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#0f172a",
-        margin=dict(l=20, r=20, t=60, b=20),
+        margin=dict(l=20, r=20, t=55, b=20),
         font=dict(color="#e5edf8"),
+        hovermode="x unified",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            x=0,
+            bgcolor="rgba(0,0,0,0)"
+        ),
     )
+    fig.update_xaxes(showgrid=False, zeroline=False, title=None)
+    fig.update_yaxes(gridcolor="rgba(148,163,184,0.12)", zeroline=False, title=None)
     return fig
 
 
@@ -218,7 +268,7 @@ def build_simple_gauge(title: str, value: float, min_value: float, max_value: fl
         }
     ))
     fig.update_layout(
-        height=240,
+        height=220,
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=20, r=20, t=40, b=10),
@@ -228,7 +278,7 @@ def build_simple_gauge(title: str, value: float, min_value: float, max_value: fl
 
 
 st.title("Stock Predictor")
-st.caption("A cleaner stock dashboard with ranked tickers, price charts, projection ranges, and quick trading cues.")
+st.caption("A cleaner stock dashboard with ranked tickers, simpler charts, projection ranges, and quick trading cues.")
 
 with st.sidebar:
     st.header("Inputs")
@@ -344,6 +394,6 @@ if run:
             else:
                 st.write("No feature importance data available.")
 
-    st.caption("This version uses a higher-contrast palette for easier reading while keeping the same model and layout.")
+    st.caption("Charts simplified: fewer overlays, cleaner support/resistance lines, and a less busy projection view.")
 else:
     st.info("Enter your tickers on the left and click Run.")
