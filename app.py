@@ -217,22 +217,32 @@ st.markdown("""
     .ticker-up { color: #86efac; }
     .ticker-down { color: #fca5a5; }
 
-    .mover-up button {
-        background: #0b3b2e !important;
-        color: #86efac !important;
-        border: 1px solid #14532d !important;
+    .mover-link {
+        display: inline-block;
+        padding: .55rem .8rem;
+        border-radius: 12px;
+        margin: .18rem .22rem .18rem 0;
+        font-size: .88rem;
+        font-weight: 800;
+        text-decoration: none;
+        border: 1px solid transparent;
     }
-    .mover-up button:hover {
-        background: #14532d !important;
+    .mover-link-up {
+        background: #0b3b2e;
+        color: #86efac !important;
+        border-color: #14532d;
+    }
+    .mover-link-up:hover {
+        background: #14532d;
         color: #dcfce7 !important;
     }
-    .mover-down button {
-        background: #4c1717 !important;
+    .mover-link-down {
+        background: #4c1717;
         color: #fca5a5 !important;
-        border: 1px solid #7f1d1d !important;
+        border-color: #7f1d1d;
     }
-    .mover-down button:hover {
-        background: #7f1d1d !important;
+    .mover-link-down:hover {
+        background: #7f1d1d;
         color: #fee2e2 !important;
     }
     .headline-card {
@@ -354,20 +364,14 @@ movers = fetch_sp500_top_movers(limit=10)
 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
 st.subheader("Live S&P 500 movers")
 if not movers.empty:
-    mover_cols = st.columns(5)
-    for idx, (_, row) in enumerate(movers.iterrows()):
+    mover_html = ""
+    for _, row in movers.iterrows():
         ticker = row["Ticker"]
         pct = float(row["Change %"])
         label = f"{ticker} {'▲' if pct >= 0 else '▼'} {pct:+.2f}%"
-        css_class = "mover-up" if pct >= 0 else "mover-down"
-        with mover_cols[idx % 5]:
-            st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
-            if st.button(label, key=f"mover_{ticker}", use_container_width=True):
-                st.session_state.active_ticker = ticker
-                st.session_state.auto_run = True
-                st.query_params["ticker"] = ticker
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+        css_class = "mover-link-up" if pct >= 0 else "mover-link-down"
+        mover_html += f'<a class="mover-link {css_class}" href="?ticker={ticker}">{label}</a>'
+    st.markdown(mover_html, unsafe_allow_html=True)
     st.caption("Tap a mover to open that ticker's dashboard automatically. Latest available S&P 500 movers from the current market data feed.")
 else:
     st.caption("Top movers were not available right now.")

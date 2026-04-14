@@ -1,9 +1,8 @@
-# Stock Predictor Clickable Movers Autorun
+# Stock Predictor Feature Sanitization Fix
 
-This version updates the movers strip so:
-- movers are green/red again
-- clicking a mover immediately opens and runs that ticker dashboard
-- no extra Run click is needed after selecting a mover
+This version fixes the training crash by:
+- replacing inf and -inf values in engineered features
+- dropping remaining invalid rows before model training
+- validating that enough clean rows remain before fitting
 
-## Deploy
-Replace the repo files with these updated versions and let Streamlit redeploy.
+If the app hit a ValueError during model.fit, this is the fix for it.

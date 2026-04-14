@@ -92,6 +92,11 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     out["oc_change"] = (out["Close"] - out["Open"]) / out["Open"]
 
     out["target"] = (out["Close"].shift(-1) > out["Close"]).astype(int)
+
+    # Clean up numeric artifacts from pct_change/division operations.
+    numeric_cols = out.select_dtypes(include=["number"]).columns
+    out[numeric_cols] = out[numeric_cols].replace([np.inf, -np.inf], np.nan)
+
     out = out.dropna().copy()
     return out
 
@@ -105,8 +110,16 @@ def download_history(ticker: str, period: str = "5y") -> pd.DataFrame:
 
 def train_test_split_time(data: pd.DataFrame, train_size: float = 0.8):
     split_idx = int(len(data) * train_size)
-    x = data[FEATURE_COLUMNS]
-    y = data["target"]
+    x = data[FEATURE_COLUMNS].copy()
+    y = data["target"].copy()
+
+    x = x.replace([np.inf, -np.inf], np.nan)
+    valid_mask = x.notna().all(axis=1) & y.notna()
+
+    x = x.loc[valid_mask]
+    y = y.loc[valid_mask]
+
+    split_idx = int(len(x) * train_size)
     return x.iloc[:split_idx], x.iloc[split_idx:], y.iloc[:split_idx], y.iloc[split_idx:]
 
 
@@ -344,6 +357,9 @@ def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float =
         raise ValueError(f"Not enough history for {ticker}")
 
     x_train, x_test, y_train, y_test = train_test_split_time(data)
+
+    if len(x_train) < 50 or len(x_test) < 10:
+        raise ValueError(f"Not enough clean training data for {ticker}")
 
     model = RandomForestClassifier(
         n_estimators=300,
