@@ -201,7 +201,7 @@ with header_left:
 with header_right:
     st.link_button("📲 Share App", APP_URL, use_container_width=True)
 
-share_tab, dashboard_tab = st.tabs(["Share", "Dashboard"])
+dashboard_tab, share_tab = st.tabs(["Dashboard", "Share"])
 
 with share_tab:
     st.subheader("Share with friends")
