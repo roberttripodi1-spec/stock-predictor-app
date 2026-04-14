@@ -17,6 +17,17 @@ from predictor import generate_projection_chart_data, train_predict_for_ticker
 APP_URL = "https://stock-predictor-app-chqgww4vn5xvfzytgesxvv.streamlit.app/"
 
 
+# Read ticker from URL query params so links/buttons can open a ticker directly.
+query_params = st.query_params
+query_ticker = str(query_params.get("ticker", "AAPL")).strip().upper() if query_params.get("ticker", None) else "AAPL"
+
+if "active_ticker" not in st.session_state:
+    st.session_state.active_ticker = query_ticker
+
+if query_ticker and query_ticker != st.session_state.active_ticker:
+    st.session_state.active_ticker = query_ticker
+
+
 def safe_attr(obj, name, default):
     return getattr(obj, name, default)
 
@@ -321,12 +332,17 @@ movers = fetch_sp500_top_movers(limit=10)
 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
 st.subheader("Live S&P 500 movers")
 if not movers.empty:
-    pill_html = ""
-    for _, row in movers.iterrows():
-        cls = "ticker-up" if row["Change %"] >= 0 else "ticker-down"
-        pill_html += f'<span class="ticker-pill">{row["Ticker"]} <span class="{cls}">{row["Change %"]:+.2f}%</span></span>'
-    st.markdown(pill_html, unsafe_allow_html=True)
-    st.caption("Latest available S&P 500 movers from the current market data feed. Refresh to update.")
+    mover_cols = st.columns(5)
+    for idx, (_, row) in enumerate(movers.iterrows()):
+        ticker = row["Ticker"]
+        pct = float(row["Change %"])
+        label = f"{ticker} {'▲' if pct >= 0 else '▼'} {pct:+.2f}%"
+        with mover_cols[idx % 5]:
+            if st.button(label, key=f"mover_{ticker}", use_container_width=True):
+                st.session_state.active_ticker = ticker
+                st.query_params["ticker"] = ticker
+                st.rerun()
+    st.caption("Tap a mover to open that ticker's dashboard. Latest available S&P 500 movers from the current market data feed.")
 else:
     st.caption("Top movers were not available right now.")
 st.markdown('</div>', unsafe_allow_html=True)
@@ -347,7 +363,7 @@ with share_tab:
 with dashboard_tab:
     with st.sidebar:
         st.markdown("<div class='muted'>Search one ticker at a time.</div>", unsafe_allow_html=True)
-        search_ticker = st.text_input("Search ticker", value="AAPL").strip().upper()
+        search_ticker = st.text_input("Search ticker", value=st.session_state.active_ticker).strip().upper()
         period = st.selectbox("History period", options=["1y", "2y", "5y", "10y"], index=2)
         threshold = st.slider("Signal threshold", min_value=0.50, max_value=0.75, value=0.55, step=0.01)
         forecast_days = st.slider("Projection days", min_value=5, max_value=60, value=20, step=5)
@@ -355,7 +371,9 @@ with dashboard_tab:
         run = st.button("Run dashboard", use_container_width=True)
 
     if run:
-        focus = search_ticker or "AAPL"
+        focus = search_ticker or st.session_state.active_ticker or "AAPL"
+        st.session_state.active_ticker = focus
+        st.query_params["ticker"] = focus
 
         result = train_predict_for_ticker(focus, period=period, threshold=threshold)
         summary, _ = generate_projection_chart_data(result, forecast_days=forecast_days, n_sims=n_sims)
@@ -462,10 +480,11 @@ with dashboard_tab:
                 st.write("No live headlines were returned right now. Try rerunning in a few minutes.")
 
         with page_tabs[3]:
-            st.write(f"Share the main app link and tell friends to search for {focus}.")
-            st.code(APP_URL, language=None)
-            st.link_button("Open app link", APP_URL, use_container_width=True)
-            st.image(build_qr_code(APP_URL), caption="Scan to open on your phone", width=180)
+            ticker_url = f"{APP_URL}?ticker={focus}"
+            st.write(f"Share a direct link to the {focus} dashboard.")
+            st.code(ticker_url, language=None)
+            st.link_button("Open direct ticker link", ticker_url, use_container_width=True)
+            st.image(build_qr_code(ticker_url), caption="Scan to open this ticker on your phone", width=180)
 
         st.caption("Now using one search box only, with a live movers strip across the top.")
     else:
