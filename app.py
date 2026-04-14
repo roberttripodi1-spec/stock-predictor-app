@@ -356,7 +356,7 @@ with dashboard_tab:
                 levels_df["Value"] = levels_df["Value"].map(lambda x: f"${x:,.2f}")
                 st.dataframe(levels_df, use_container_width=True, hide_index=True)
                 st.markdown('<span class="detail-label">Flags</span>', unsafe_allow_html=True)
-                flags = safe_attr(result, "watchlist_flags", ["No major alert flags"])
+                flags = safe_attr(result, "_flags", ["No major alert flags"])
                 flags_html = "".join([f'<span class="flag">{flag}</span>' for flag in flags])
                 st.markdown(flags_html, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)

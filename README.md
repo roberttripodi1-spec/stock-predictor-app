@@ -1,9 +1,7 @@
-# Stock Predictor S&P Movers + Single Search
+# Stock Predictor - Single Search Only
 
-This version:
-- adds a live S&P 500 top movers strip across the top
-- removes the saved list/watchlist flow
-- keeps one ticker search box only
+This version removes ALL saved list/watchlist functionality.
 
-## Deploy
-Replace the repo files with these updated versions and let Streamlit redeploy.
+- one ticker search only
+- no saved list
+- cleaner and simpler flow
