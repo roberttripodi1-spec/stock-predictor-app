@@ -8,10 +8,10 @@ from predictor import screen_tickers
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Screen multiple tickers with the stock dashboard model.")
-    parser.add_argument("--tickers", required=True, help="Comma-separated tickers, e.g. AAPL,MSFT,NVDA")
+    parser.add_argument("--tickers", required=True, help="Comma-separated tickers")
     parser.add_argument("--period", default="5y", help="History period")
     parser.add_argument("--threshold", type=float, default=0.55, help="Signal threshold")
-    parser.add_argument("--out", default="screen_results.csv", help="Output CSV file path")
+    parser.add_argument("--out", default="screen_results.csv", help="Output CSV path")
     args = parser.parse_args()
 
     tickers = [t.strip().upper() for t in args.tickers.split(",") if t.strip()]

@@ -62,6 +62,7 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     out["sma_5"] = out["Close"].rolling(5).mean()
     out["sma_10"] = out["Close"].rolling(10).mean()
     out["sma_20"] = out["Close"].rolling(20).mean()
+    out["sma_50"] = out["Close"].rolling(50).mean()
     out["ema_12"] = out["Close"].ewm(span=12, adjust=False).mean()
     out["ema_26"] = out["Close"].ewm(span=26, adjust=False).mean()
 
@@ -96,6 +97,55 @@ def train_test_split_time(data: pd.DataFrame, train_size: float = 0.8):
     return x.iloc[:split_idx], x.iloc[split_idx:], y.iloc[:split_idx], y.iloc[split_idx:]
 
 
+def derive_signal(prob: float, price: float, sma20: float, rsi: float, macd: float, macd_signal: float) -> str:
+    if prob >= 0.60 and price >= sma20 and rsi < 72 and macd >= macd_signal:
+        return "BUY"
+    if prob <= 0.40 and price < sma20 and macd < macd_signal:
+        return "SELL"
+    return "WATCH"
+
+
+def generate_trade_levels(history: pd.DataFrame, latest_close: float) -> dict:
+    recent = history.tail(30).copy()
+    support = float(recent["Low"].min())
+    resistance = float(recent["High"].max())
+    atr_proxy = float((recent["High"] - recent["Low"]).rolling(14).mean().dropna().iloc[-1]) if len(recent) >= 14 else float((recent["High"] - recent["Low"]).mean())
+
+    stop_loss = max(0.01, latest_close - atr_proxy * 1.25)
+    target_1 = latest_close + atr_proxy * 1.0
+    target_2 = latest_close + atr_proxy * 2.0
+    risk = max(0.01, latest_close - stop_loss)
+    reward_1 = max(0.0, target_1 - latest_close)
+    reward_2 = max(0.0, target_2 - latest_close)
+
+    return {
+        "support_level": support,
+        "resistance_level": resistance,
+        "stop_loss": stop_loss,
+        "target_1": target_1,
+        "target_2": target_2,
+        "rr_1": reward_1 / risk if risk else np.nan,
+        "rr_2": reward_2 / risk if risk else np.nan,
+    }
+
+
+def market_mood(prob: float, rsi: float, price: float, sma20: float, sma50: float) -> str:
+    score = 0
+    if prob > 0.55:
+        score += 1
+    if rsi > 55:
+        score += 1
+    if price > sma20:
+        score += 1
+    if price > sma50:
+        score += 1
+    if score >= 4:
+        return "Bullish"
+    if score >= 2:
+        return "Neutral"
+    return "Bearish"
+
+
 @dataclass
 class ModelResult:
     ticker: str
@@ -115,33 +165,18 @@ class ModelResult:
     stop_loss: float
     target_1: float
     target_2: float
-
-
-def derive_signal(prob: float, price: float, sma20: float, rsi: float) -> str:
-    if prob >= 0.60 and price >= sma20 and rsi < 72:
-        return "BUY"
-    if prob <= 0.40 and price < sma20:
-        return "SELL"
-    return "WATCH"
-
-
-def generate_trade_levels(history: pd.DataFrame, latest_close: float) -> dict:
-    recent = history.tail(30).copy()
-    support = float(recent["Low"].min())
-    resistance = float(recent["High"].max())
-    atr_proxy = float((recent["High"] - recent["Low"]).rolling(14).mean().dropna().iloc[-1]) if len(recent) >= 14 else float((recent["High"] - recent["Low"]).mean())
-
-    stop_loss = max(0.01, latest_close - atr_proxy * 1.25)
-    target_1 = latest_close + atr_proxy * 1.0
-    target_2 = latest_close + atr_proxy * 2.0
-
-    return {
-        "support_level": support,
-        "resistance_level": resistance,
-        "stop_loss": stop_loss,
-        "target_1": target_1,
-        "target_2": target_2,
-    }
+    rr_1: float
+    rr_2: float
+    rsi_14: float
+    macd: float
+    macd_signal: float
+    sma20: float
+    sma50: float
+    volume_ratio: float
+    momentum_20d: float
+    volatility_20: float
+    range_52w_position: float
+    mood: str
 
 
 def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float = 0.55) -> ModelResult:
@@ -189,9 +224,22 @@ def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float =
 
     latest_close = float(data["Close"].iloc[-1])
     latest_sma20 = float(data["sma_20"].iloc[-1])
+    latest_sma50 = float(data["sma_50"].iloc[-1])
     latest_rsi = float(data["rsi_14"].iloc[-1])
-    model_signal = derive_signal(next_up_prob, latest_close, latest_sma20, latest_rsi)
+    latest_macd = float(data["macd"].iloc[-1])
+    latest_macd_signal = float(data["signal"].iloc[-1])
+    volume_ratio = float(hist["Volume"].iloc[-1] / hist["Volume"].tail(20).mean()) if hist["Volume"].tail(20).mean() else np.nan
+    momentum_20d = float(hist["Close"].pct_change(20).iloc[-1])
+    volatility_20 = float(data["volatility_20"].iloc[-1])
+
+    trailing_252 = hist.tail(min(252, len(hist)))
+    range_low = float(trailing_252["Low"].min())
+    range_high = float(trailing_252["High"].max())
+    range_52w_position = (latest_close - range_low) / max(0.01, (range_high - range_low))
+
+    model_signal = derive_signal(next_up_prob, latest_close, latest_sma20, latest_rsi, latest_macd, latest_macd_signal)
     levels = generate_trade_levels(hist, latest_close)
+    mood = market_mood(next_up_prob, latest_rsi, latest_close, latest_sma20, latest_sma50)
 
     return ModelResult(
         ticker=ticker.upper(),
@@ -211,6 +259,18 @@ def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float =
         stop_loss=levels["stop_loss"],
         target_1=levels["target_1"],
         target_2=levels["target_2"],
+        rr_1=levels["rr_1"],
+        rr_2=levels["rr_2"],
+        rsi_14=latest_rsi,
+        macd=latest_macd,
+        macd_signal=latest_macd_signal,
+        sma20=latest_sma20,
+        sma50=latest_sma50,
+        volume_ratio=volume_ratio,
+        momentum_20d=momentum_20d,
+        volatility_20=volatility_20,
+        range_52w_position=float(range_52w_position),
+        mood=mood,
     )
 
 
@@ -225,27 +285,31 @@ def screen_tickers(tickers: Iterable[str], period: str = "5y", threshold: float 
             rows.append({
                 "Ticker": result.ticker,
                 "Signal": result.model_signal,
+                "Mood": result.mood,
                 "Latest Date": result.latest_date,
                 "Latest Close": result.latest_close,
                 "Up Probability": result.next_day_up_probability,
                 "Holdout Accuracy": result.holdout_accuracy,
+                "RSI": result.rsi_14,
+                "20D Momentum": result.momentum_20d,
+                "Volume Ratio": result.volume_ratio,
                 "Strategy Return": result.strategy_return,
                 "Buy & Hold Return": result.buy_hold_return,
-                "Support": result.support_level,
-                "Resistance": result.resistance_level,
             })
         except Exception as exc:
             rows.append({
                 "Ticker": t,
                 "Signal": "ERROR",
+                "Mood": "",
                 "Latest Date": "",
                 "Latest Close": np.nan,
                 "Up Probability": np.nan,
                 "Holdout Accuracy": np.nan,
+                "RSI": np.nan,
+                "20D Momentum": np.nan,
+                "Volume Ratio": np.nan,
                 "Strategy Return": np.nan,
                 "Buy & Hold Return": np.nan,
-                "Support": np.nan,
-                "Resistance": np.nan,
                 "Error": str(exc),
             })
 

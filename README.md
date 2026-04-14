@@ -1,18 +1,18 @@
-# Stock Predictor Pro
+# Stock Predictor Pro+
 
-This version adds:
-- Candlestick charts
-- Support and resistance lines
-- Stop loss and target levels
-- Buy / Sell / Watch signal
-- Projection chart with bands
-- Ranked ticker screen
+This version adds more character and more context:
 
-## Run locally
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
+- styled dark theme
+- hero header and signal card
+- RSI gauge
+- SMA 20 / SMA 50 overlays
+- market mood label
+- 20-day momentum
+- 20-day volatility
+- 52-week range position
+- volume ratio
+- risk / reward ratios
+- cleaner level table and signal notes
 
-## Deploy
-Upload these files to your GitHub repo and let Streamlit redeploy automatically.
+## Deploy update
+Replace the repo files with these updated versions and Streamlit should redeploy.
