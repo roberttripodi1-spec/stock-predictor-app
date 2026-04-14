@@ -7,61 +7,38 @@ import streamlit as st
 from predictor import generate_projection_chart_data, screen_tickers, train_predict_for_ticker
 
 
-st.set_page_config(page_title="Stock Predictor Pro+", layout="wide")
+st.set_page_config(page_title="Stock Predictor Elite", layout="wide")
 
 st.markdown("""
 <style>
     .stApp {
-        background: radial-gradient(circle at top left, #111827 0%, #0b1220 45%, #050816 100%);
+        background: radial-gradient(circle at top left, #0f172a 0%, #07111f 40%, #020617 100%);
         color: #e5e7eb;
     }
     .hero {
-        padding: 1.2rem 1.4rem;
+        padding: 1.25rem 1.4rem;
         border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 18px;
-        background: linear-gradient(135deg, rgba(37,99,235,0.18), rgba(16,185,129,0.12));
-        box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+        border-radius: 20px;
+        background: linear-gradient(135deg, rgba(37,99,235,0.20), rgba(168,85,247,0.18), rgba(16,185,129,0.14));
+        box-shadow: 0 12px 40px rgba(0,0,0,0.28);
         margin-bottom: 1rem;
     }
-    .hero h1 {
-        margin: 0;
-        font-size: 2rem;
-    }
-    .hero p {
-        margin: 0.35rem 0 0 0;
-        color: #cbd5e1;
-    }
-    .pill-row {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-        margin-top: 0.8rem;
-    }
+    .pill-row { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.8rem; }
     .pill {
-        padding: 0.35rem 0.7rem;
-        border-radius: 999px;
-        background: rgba(255,255,255,0.08);
-        color: #e2e8f0;
-        font-size: 0.88rem;
-        border: 1px solid rgba(255,255,255,0.07);
-    }
-    .section-card {
-        padding: 1rem;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.08);
-        background: rgba(255,255,255,0.03);
-        margin-bottom: 1rem;
+        padding:.35rem .7rem; border-radius:999px; background:rgba(255,255,255,0.08);
+        color:#e2e8f0; font-size:.88rem; border:1px solid rgba(255,255,255,0.07);
     }
     .signal-buy, .signal-sell, .signal-watch {
-        padding: 0.8rem 1rem;
-        border-radius: 14px;
-        font-weight: 700;
-        text-align: center;
-        border: 1px solid rgba(255,255,255,0.08);
+        padding: .9rem 1rem; border-radius: 14px; font-weight: 800; text-align:center;
+        border:1px solid rgba(255,255,255,0.08); margin-bottom: .75rem;
     }
     .signal-buy { background: rgba(16,185,129,0.15); color: #a7f3d0; }
     .signal-sell { background: rgba(239,68,68,0.16); color: #fecaca; }
     .signal-watch { background: rgba(245,158,11,0.16); color: #fde68a; }
+    .flag {
+        padding: .45rem .65rem; border-radius: 999px; display: inline-block; margin: .2rem .25rem .2rem 0;
+        background: rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.07); font-size: .88rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -81,13 +58,11 @@ def build_candlestick_chart(hist: pd.DataFrame, result) -> go.Figure:
     ))
     fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["SMA20"], mode="lines", name="SMA 20"))
     fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["SMA50"], mode="lines", name="SMA 50"))
-
     fig.add_hline(y=result.support_level, line_dash="dash", annotation_text="Support")
     fig.add_hline(y=result.resistance_level, line_dash="dash", annotation_text="Resistance")
     fig.add_hline(y=result.stop_loss, line_dash="dot", annotation_text="Stop")
     fig.add_hline(y=result.target_1, line_dash="dot", annotation_text="T1")
     fig.add_hline(y=result.target_2, line_dash="dot", annotation_text="T2")
-
     fig.update_layout(
         title=f"{result.ticker} Price Structure",
         height=620,
@@ -109,7 +84,7 @@ def build_projection_chart(summary: pd.DataFrame, current_price: float) -> go.Fi
     fig.add_hline(y=current_price, line_dash="dash", annotation_text="Current Price")
     fig.update_layout(
         title="Projected Price Cone",
-        height=500,
+        height=480,
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(255,255,255,0.02)",
@@ -118,7 +93,7 @@ def build_projection_chart(summary: pd.DataFrame, current_price: float) -> go.Fi
     return fig
 
 
-def build_momentum_gauge(result) -> go.Figure:
+def build_rsi_gauge(result) -> go.Figure:
     rsi_value = max(0, min(100, result.rsi_14))
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
@@ -134,31 +109,45 @@ def build_momentum_gauge(result) -> go.Figure:
             "threshold": {"line": {"color": "white", "width": 4}, "thickness": 0.75, "value": rsi_value},
         }
     ))
-    fig.update_layout(
-        height=280,
-        template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=20, r=20, t=40, b=10),
-    )
+    fig.update_layout(height=260, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=20,r=20,t=40,b=10))
+    return fig
+
+
+def build_sentiment_gauge(result) -> go.Figure:
+    value = max(-1, min(1, result.sentiment_score))
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        number={"suffix": ""},
+        title={"text": "News Sentiment"},
+        gauge={
+            "axis": {"range": [-1, 1]},
+            "steps": [
+                {"range": [-1, -0.25], "color": "rgba(239,68,68,0.35)"},
+                {"range": [-0.25, 0.25], "color": "rgba(148,163,184,0.25)"},
+                {"range": [0.25, 1], "color": "rgba(16,185,129,0.30)"},
+            ],
+            "threshold": {"line": {"color": "white", "width": 4}, "thickness": 0.75, "value": value},
+        }
+    ))
+    fig.update_layout(height=260, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=20,r=20,t=40,b=10))
     return fig
 
 
 def signal_class(signal: str) -> str:
-    return {
-        "BUY": "signal-buy",
-        "SELL": "signal-sell",
-    }.get(signal, "signal-watch")
+    return {"BUY": "signal-buy", "SELL": "signal-sell"}.get(signal, "signal-watch")
 
 
 st.markdown("""
 <div class="hero">
-    <h1>Stock Predictor Pro+</h1>
-    <p>Research dashboard with projection cones, signal cards, momentum context, and cleaner trading visuals.</p>
+    <h1 style="margin:0;">Stock Predictor Elite</h1>
+    <p style="margin:.35rem 0 0 0; color:#cbd5e1;">Styled research terminal with price structure, projection cones, earnings awareness, and headline tone.</p>
     <div class="pill-row">
-        <div class="pill">Next-day probability model</div>
-        <div class="pill">Projection scenarios</div>
-        <div class="pill">Trend and momentum context</div>
-        <div class="pill">Support / resistance / targets</div>
+        <div class="pill">Signal engine</div>
+        <div class="pill">Projection cone</div>
+        <div class="pill">News sentiment</div>
+        <div class="pill">Earnings risk</div>
+        <div class="pill">Watchlist alerts</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -175,10 +164,9 @@ with st.sidebar:
 
 if run:
     tickers = [t.strip().upper() for t in tickers_text.split(",") if t.strip()]
-    with st.spinner("Building market view..."):
+    with st.spinner("Building elite market view..."):
         df = screen_tickers(tickers, period=period, threshold=threshold)
 
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
     st.subheader("Ranked Watchlist")
     display_df = df.copy()
     for col in ["Latest Close"]:
@@ -191,7 +179,6 @@ if run:
         if col in display_df.columns:
             display_df[col] = display_df[col].map(lambda x: f"{x:,.2f}" if pd.notnull(x) else "")
     st.dataframe(display_df, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
     focus = selected_ticker.strip().upper() if selected_ticker.strip() else None
     if focus not in tickers and len(tickers) > 0:
@@ -200,47 +187,50 @@ if run:
     result = train_predict_for_ticker(focus, period=period, threshold=threshold)
     summary, _ = generate_projection_chart_data(result, forecast_days=forecast_days, n_sims=n_sims)
 
-    left, right = st.columns([1.2, 2.2])
+    col_a, col_b, col_c, col_d = st.columns(4)
+    col_a.markdown(f'<div class="{signal_class(result.model_signal)}">{result.model_signal}</div>', unsafe_allow_html=True)
+    col_b.metric("Market Mood", result.mood)
+    col_c.metric("News Tone", result.sentiment_label)
+    col_d.metric("Earnings Status", result.earnings_flag)
+
+    row1 = st.columns(5)
+    row1[0].metric("Latest Close", f"${result.latest_close:,.2f}")
+    row1[1].metric("Up Probability", f"{result.next_day_up_probability:.2%}")
+    row1[2].metric("20D Momentum", f"{result.momentum_20d:.2%}")
+    row1[3].metric("Volume Ratio", f"{result.volume_ratio:.2f}x")
+    row1[4].metric("52W Range Pos.", f"{result.range_52w_position:.0%}")
+
+    row2 = st.columns(5)
+    row2[0].metric("Holdout Accuracy", f"{result.holdout_accuracy:.2%}")
+    row2[1].metric("Support", f"${result.support_level:,.2f}")
+    row2[2].metric("Resistance", f"${result.resistance_level:,.2f}")
+    row2[3].metric("Target 1", f"${result.target_1:,.2f}")
+    row2[4].metric("Target 2", f"${result.target_2:,.2f}")
+
+    left, right = st.columns([1.05, 2.1])
 
     with left:
-        st.markdown(f'<div class="{signal_class(result.model_signal)}">{result.model_signal}</div>', unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
-        c1.metric("Market Mood", result.mood)
-        c2.metric("Up Probability", f"{result.next_day_up_probability:.2%}")
+        st.plotly_chart(build_rsi_gauge(result), use_container_width=True)
+        st.plotly_chart(build_sentiment_gauge(result), use_container_width=True)
 
-        c3, c4 = st.columns(2)
-        c3.metric("Latest Close", f"${result.latest_close:,.2f}")
-        c4.metric("Holdout Accuracy", f"{result.holdout_accuracy:.2%}")
+        st.subheader("Watchlist Flags")
+        flags_html = "".join([f'<span class="flag">{flag}</span>' for flag in result.watchlist_flags])
+        st.markdown(flags_html, unsafe_allow_html=True)
 
-        c5, c6 = st.columns(2)
-        c5.metric("20D Momentum", f"{result.momentum_20d:.2%}")
-        c6.metric("20D Volatility", f"{result.volatility_20:.2%}")
+        st.subheader("Earnings Window")
+        if result.earnings_date:
+            st.write(f"Next/Recent earnings date: **{result.earnings_date}**")
+        else:
+            st.write("No earnings date found from the data source.")
+        if result.days_to_earnings is not None:
+            st.write(f"Days to earnings: **{result.days_to_earnings}**")
 
-        c7, c8 = st.columns(2)
-        c7.metric("Volume Ratio", f"{result.volume_ratio:.2f}x")
-        c8.metric("52W Range Pos.", f"{result.range_52w_position:.0%}")
-
-        c9, c10 = st.columns(2)
-        c9.metric("Risk/Reward T1", f"{result.rr_1:.2f}")
-        c10.metric("Risk/Reward T2", f"{result.rr_2:.2f}")
-
-        st.plotly_chart(build_momentum_gauge(result), use_container_width=True)
-
-        levels_df = pd.DataFrame({
-            "Level": ["Support", "Resistance", "Stop Loss", "Target 1", "Target 2", "SMA 20", "SMA 50"],
-            "Price": [
-                result.support_level,
-                result.resistance_level,
-                result.stop_loss,
-                result.target_1,
-                result.target_2,
-                result.sma20,
-                result.sma50,
-            ],
-        })
-        levels_df["Price"] = levels_df["Price"].map(lambda x: f"${x:,.2f}")
-        st.subheader("Key Levels")
-        st.dataframe(levels_df, use_container_width=True, hide_index=True)
+        st.subheader("Headline Tone")
+        if result.headlines:
+            for headline in result.headlines[:6]:
+                st.write(f"- {headline}")
+        else:
+            st.write("No headlines returned by the data source.")
 
     with right:
         st.plotly_chart(build_candlestick_chart(result.history, result), use_container_width=True)
@@ -253,8 +243,8 @@ if run:
         notes.append(f"RSI is {'overheated' if result.rsi_14 > 70 else 'weak' if result.rsi_14 < 40 else 'balanced'} at {result.rsi_14:.1f}.")
         notes.append(f"Price is {'above' if result.latest_close > result.sma20 else 'below'} the 20-day average and {'above' if result.latest_close > result.sma50 else 'below'} the 50-day average.")
         notes.append(f"MACD is {'above' if result.macd > result.macd_signal else 'below'} its signal line.")
-        notes.append(f"20-day momentum sits at {result.momentum_20d:.2%}.")
-        notes.append(f"Volume is running at {result.volume_ratio:.2f}x the 20-day average.")
+        notes.append(f"Earnings status is {result.earnings_flag.lower()}.")
+        notes.append(f"Headline tone is {result.sentiment_label.lower()} based on {result.headline_count} recent headlines.")
         for n in notes:
             st.write(f"- {n}")
 
@@ -265,5 +255,5 @@ if run:
         st.dataframe(feature_df, use_container_width=True, hide_index=True)
 
     st.caption(
-        "This is a model-driven research dashboard. It adds style and context, but it still does not guarantee future prices or profitable trades."
+        "This dashboard uses yfinance market and news feeds when available. Headline sentiment is lightweight keyword scoring, and earnings dates depend on the upstream data feed."
     )

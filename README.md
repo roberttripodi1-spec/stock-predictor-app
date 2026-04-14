@@ -1,18 +1,17 @@
-# Stock Predictor Pro+
+# Stock Predictor Elite
 
-This version adds more character and more context:
+Premium-style update with:
+- dark terminal-like theme
+- earnings status
+- recent headline sentiment
+- watchlist alert flags
+- richer signal summary
+- projection cone
+- candlestick structure chart
 
-- styled dark theme
-- hero header and signal card
-- RSI gauge
-- SMA 20 / SMA 50 overlays
-- market mood label
-- 20-day momentum
-- 20-day volatility
-- 52-week range position
-- volume ratio
-- risk / reward ratios
-- cleaner level table and signal notes
+## Notes
+Headline sentiment is simple keyword scoring on recent headlines returned by the market data source.
+Earnings dates and news availability depend on the upstream feed.
 
-## Deploy update
-Replace the repo files with these updated versions and Streamlit should redeploy.
+## Deploy
+Replace the repo files with these updated versions and let Streamlit redeploy.

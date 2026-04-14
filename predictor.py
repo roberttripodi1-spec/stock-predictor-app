@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Iterable
 
 import numpy as np
@@ -30,6 +31,19 @@ FEATURE_COLUMNS = [
     "oc_change",
     "Volume",
 ]
+
+POSITIVE_WORDS = {
+    "beat", "beats", "surge", "surges", "jump", "jumps", "gain", "gains", "bullish",
+    "upgrade", "upgrades", "strong", "growth", "record", "buyback", "expands",
+    "momentum", "profit", "profits", "optimistic", "rally", "rallies", "outperform",
+    "partnership", "launch", "raises", "raised", "improves", "improved"
+}
+NEGATIVE_WORDS = {
+    "miss", "misses", "drop", "drops", "fall", "falls", "weak", "cut", "cuts",
+    "downgrade", "downgrades", "bearish", "lawsuit", "probe", "decline", "declines",
+    "warning", "warns", "risk", "risks", "loss", "losses", "recall", "delay", "delays",
+    "selloff", "sell-off", "pressure", "slowdown", "recession"
+}
 
 
 def compute_rsi(series: pd.Series, period: int = 14) -> pd.Series:
@@ -146,6 +160,165 @@ def market_mood(prob: float, rsi: float, price: float, sma20: float, sma50: floa
     return "Bearish"
 
 
+def _safe_to_datetime(value):
+    if value is None:
+        return None
+    try:
+        ts = pd.to_datetime(value)
+        if ts.tzinfo is None:
+            ts = ts.tz_localize("UTC")
+        return ts
+    except Exception:
+        return None
+
+
+def get_earnings_info(ticker: str) -> dict:
+    """
+    Uses yfinance calendar / earnings date fields when available.
+    """
+    out = {
+        "earnings_date": None,
+        "days_to_earnings": None,
+        "earnings_flag": "No date found",
+    }
+    try:
+        tk = yf.Ticker(ticker)
+        possible = []
+
+        cal = tk.calendar
+        if isinstance(cal, pd.DataFrame) and not cal.empty:
+            for value in cal.values.flatten():
+                possible.append(value)
+        elif isinstance(cal, dict):
+            for value in cal.values():
+                possible.append(value)
+
+        for attr in ["earnings_dates", "earningsDate"]:
+            try:
+                value = getattr(tk, attr, None)
+                if value is not None:
+                    possible.append(value)
+            except Exception:
+                pass
+
+        parsed = None
+        for value in possible:
+            if isinstance(value, pd.DataFrame) and not value.empty:
+                idx = value.index[0]
+                parsed = _safe_to_datetime(idx)
+                if parsed is not None:
+                    break
+            elif isinstance(value, (list, tuple)) and len(value) > 0:
+                parsed = _safe_to_datetime(value[0])
+                if parsed is not None:
+                    break
+            else:
+                parsed = _safe_to_datetime(value)
+                if parsed is not None:
+                    break
+
+        if parsed is not None:
+            now = pd.Timestamp.now(tz="UTC")
+            delta = (parsed.normalize() - now.normalize()).days
+            out["earnings_date"] = parsed.date().isoformat()
+            out["days_to_earnings"] = int(delta)
+            if delta < 0:
+                out["earnings_flag"] = "Recent earnings"
+            elif delta <= 7:
+                out["earnings_flag"] = "Earnings soon"
+            elif delta <= 30:
+                out["earnings_flag"] = "Upcoming earnings"
+            else:
+                out["earnings_flag"] = "Earnings later"
+    except Exception:
+        pass
+
+    return out
+
+
+def get_news_sentiment(ticker: str, max_items: int = 8) -> dict:
+    """
+    Lightweight headline sentiment from Yahoo-finance-linked news via yfinance.
+    """
+    result = {
+        "sentiment_score": 0.0,
+        "sentiment_label": "Neutral",
+        "headline_count": 0,
+        "headlines": [],
+    }
+    try:
+        tk = yf.Ticker(ticker)
+        news_items = getattr(tk, "news", []) or []
+        selected = news_items[:max_items]
+
+        score = 0
+        headlines = []
+        for item in selected:
+            title = str(item.get("title", "")).strip()
+            if not title:
+                continue
+            lower = title.lower()
+            pos_hits = sum(1 for w in POSITIVE_WORDS if w in lower)
+            neg_hits = sum(1 for w in NEGATIVE_WORDS if w in lower)
+            score += (pos_hits - neg_hits)
+            headlines.append(title)
+
+        count = len(headlines)
+        avg = float(score / count) if count else 0.0
+
+        label = "Neutral"
+        if avg >= 0.35:
+            label = "Positive"
+        elif avg <= -0.35:
+            label = "Negative"
+
+        result.update({
+            "sentiment_score": avg,
+            "sentiment_label": label,
+            "headline_count": count,
+            "headlines": headlines,
+        })
+    except Exception:
+        pass
+
+    return result
+
+
+def build_watchlist_flags(
+    signal: str,
+    mood: str,
+    volume_ratio: float,
+    earnings_days: int | None,
+    sentiment_label: str,
+    range_position: float,
+    rsi: float,
+) -> list[str]:
+    flags = []
+
+    if signal == "BUY" and mood == "Bullish":
+        flags.append("Trend setup aligned")
+    if volume_ratio >= 1.5:
+        flags.append("Volume expansion")
+    if earnings_days is not None and 0 <= earnings_days <= 7:
+        flags.append("Earnings risk this week")
+    if sentiment_label == "Positive":
+        flags.append("Positive headline tone")
+    if sentiment_label == "Negative":
+        flags.append("Negative headline tone")
+    if range_position >= 0.85:
+        flags.append("Near 52-week highs")
+    if range_position <= 0.20:
+        flags.append("Near 52-week lows")
+    if rsi >= 70:
+        flags.append("Momentum overheated")
+    if rsi <= 35:
+        flags.append("Momentum washed out")
+
+    if not flags:
+        flags.append("No major alert flags")
+    return flags
+
+
 @dataclass
 class ModelResult:
     ticker: str
@@ -177,6 +350,14 @@ class ModelResult:
     volatility_20: float
     range_52w_position: float
     mood: str
+    earnings_date: str | None
+    days_to_earnings: int | None
+    earnings_flag: str
+    sentiment_score: float
+    sentiment_label: str
+    headline_count: int
+    headlines: list[str]
+    watchlist_flags: list[str]
 
 
 def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float = 0.55) -> ModelResult:
@@ -240,6 +421,17 @@ def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float =
     model_signal = derive_signal(next_up_prob, latest_close, latest_sma20, latest_rsi, latest_macd, latest_macd_signal)
     levels = generate_trade_levels(hist, latest_close)
     mood = market_mood(next_up_prob, latest_rsi, latest_close, latest_sma20, latest_sma50)
+    earnings = get_earnings_info(ticker)
+    news = get_news_sentiment(ticker)
+    flags = build_watchlist_flags(
+        signal=model_signal,
+        mood=mood,
+        volume_ratio=volume_ratio,
+        earnings_days=earnings["days_to_earnings"],
+        sentiment_label=news["sentiment_label"],
+        range_position=float(range_52w_position),
+        rsi=latest_rsi,
+    )
 
     return ModelResult(
         ticker=ticker.upper(),
@@ -271,6 +463,14 @@ def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float =
         volatility_20=volatility_20,
         range_52w_position=float(range_52w_position),
         mood=mood,
+        earnings_date=earnings["earnings_date"],
+        days_to_earnings=earnings["days_to_earnings"],
+        earnings_flag=earnings["earnings_flag"],
+        sentiment_score=news["sentiment_score"],
+        sentiment_label=news["sentiment_label"],
+        headline_count=news["headline_count"],
+        headlines=news["headlines"],
+        watchlist_flags=flags,
     )
 
 
@@ -286,6 +486,8 @@ def screen_tickers(tickers: Iterable[str], period: str = "5y", threshold: float 
                 "Ticker": result.ticker,
                 "Signal": result.model_signal,
                 "Mood": result.mood,
+                "News Sentiment": result.sentiment_label,
+                "Earnings": result.earnings_flag,
                 "Latest Date": result.latest_date,
                 "Latest Close": result.latest_close,
                 "Up Probability": result.next_day_up_probability,
@@ -301,6 +503,8 @@ def screen_tickers(tickers: Iterable[str], period: str = "5y", threshold: float 
                 "Ticker": t,
                 "Signal": "ERROR",
                 "Mood": "",
+                "News Sentiment": "",
+                "Earnings": "",
                 "Latest Date": "",
                 "Latest Close": np.nan,
                 "Up Probability": np.nan,
