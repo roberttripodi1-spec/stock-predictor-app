@@ -1,9 +1,11 @@
-# Stock Predictor HTML Movers Same Tab
+# Stock Predictor Full Restore + Mobile Clean
 
-This version fixes the mover pills with:
-- real green/red HTML styling
-- same-tab navigation using target="_self"
-- direct ticker links
-- auto-run when the ticker loads from the URL
+This version restores the full feature set while keeping the mover fix:
+- green/red clickable mover pills
+- same-tab ticker switching
+- auto-run on mover click
+- details page restored
+- headlines page restored
+- cleaner mobile spacing and tighter charts
 
 Replace all 5 repo files with these versions.

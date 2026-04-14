@@ -157,43 +157,79 @@ st.set_page_config(page_title="Stock Predictor", layout="wide", initial_sidebar_
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(180deg, #0b1220 0%, #101828 100%); color: #f8fafc; }
-    .main .block-container { padding-top: 1rem; padding-bottom: 2rem; max-width: 1220px; }
+    .main .block-container { padding-top: 0.85rem; padding-bottom: 1.5rem; max-width: 1180px; }
+
     @media (max-width: 768px) {
-        .main .block-container { padding-left: 0.7rem; padding-right: 0.7rem; padding-top: 0.8rem; }
-        h1 { font-size: 1.8rem !important; }
-        h2 { font-size: 1.25rem !important; }
-        h3 { font-size: 1.05rem !important; }
+        .main .block-container { padding-left: 0.65rem; padding-right: 0.65rem; padding-top: 0.65rem; }
+        h1 { font-size: 1.7rem !important; }
+        h2 { font-size: 1.2rem !important; }
+        h3 { font-size: 1.02rem !important; }
     }
+
     h1, h2, h3 { color: #f8fafc !important; letter-spacing: -0.02em; }
+
     .hero, .section-card, .movers-card {
-        padding: 0.95rem 1rem; border: 1px solid #223046; border-radius: 16px; background: #111827;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.18); margin-bottom: 0.9rem;
+        padding: 0.9rem 1rem;
+        border: 1px solid #223046;
+        border-radius: 16px;
+        background: #111827;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+        margin-bottom: 0.8rem;
     }
-    .muted { color: #a5b4c7; font-size: .92rem; margin-top: .35rem; }
+
+    .muted, .small-note {
+        color: #a5b4c7;
+        font-size: .9rem;
+        margin-top: .25rem;
+    }
+
     .flag {
-        padding: .42rem .66rem; border-radius: 999px; display: inline-block; margin: .18rem .22rem .18rem 0;
-        background: #1b2638; border: 1px solid #314158; color: #e5edf8; font-size: .84rem;
+        padding: .4rem .62rem;
+        border-radius: 999px;
+        display: inline-block;
+        margin: .16rem .2rem .16rem 0;
+        background: #1b2638;
+        border: 1px solid #314158;
+        color: #e5edf8;
+        font-size: .82rem;
     }
+
     .headline-card {
-        padding: .8rem .9rem; border: 1px solid #223046; border-radius: 12px; background: #0f172a; margin-bottom: .6rem;
+        padding: .78rem .85rem;
+        border: 1px solid #223046;
+        border-radius: 12px;
+        background: #0f172a;
+        margin-bottom: .55rem;
     }
-    .headline-source { color: #93c5fd; font-size: .82rem; font-weight: 600; }
+
+    .headline-source {
+        color: #93c5fd;
+        font-size: .8rem;
+        font-weight: 600;
+    }
+
     .signal-buy, .signal-sell, .signal-watch {
-        padding: .78rem .95rem; border-radius: 12px; font-weight: 800; text-align: center;
-        border: 1px solid transparent; margin-bottom: .75rem; letter-spacing: .02em;
+        padding: .74rem .9rem;
+        border-radius: 12px;
+        font-weight: 800;
+        text-align: center;
+        border: 1px solid transparent;
+        margin-bottom: .65rem;
+        letter-spacing: .02em;
     }
     .signal-buy { background: #0b3b2e; color: #6ee7b7; border-color: #14532d; }
     .signal-sell { background: #4c1717; color: #fca5a5; border-color: #7f1d1d; }
     .signal-watch { background: #5a3b10; color: #fcd34d; border-color: #92400e; }
-    .detail-list { margin: 0; padding-left: 1rem; color: #dbe4f0; line-height: 1.6; }
+
+    .detail-list { margin: 0; padding-left: 1rem; color: #dbe4f0; line-height: 1.55; }
     .detail-label { color: #93c5fd; font-weight: 700; margin-bottom: .35rem; display: block; }
 
     .mover-link {
         display: inline-block;
-        padding: .56rem .82rem;
+        padding: .52rem .78rem;
         border-radius: 12px;
-        margin: .18rem .22rem .18rem 0;
-        font-size: .88rem;
+        margin: .16rem .18rem .16rem 0;
+        font-size: .86rem;
         font-weight: 800;
         text-decoration: none !important;
         border: 1px solid transparent;
@@ -206,33 +242,58 @@ st.markdown("""
     .mover-down:hover { background: #291212; color: #fca5a5 !important; }
 
     [data-testid="stMetric"] {
-        background: #111827; border: 1px solid #223046; border-radius: 14px; padding: .55rem .7rem;
+        background: #111827;
+        border: 1px solid #223046;
+        border-radius: 14px;
+        padding: .48rem .62rem;
     }
     [data-testid="stMetricLabel"] { color: #b8c4d6 !important; font-weight: 600; }
     [data-testid="stMetricValue"] { color: #f8fafc !important; }
+
     div[data-testid="stDataFrame"] {
-        border: 1px solid #223046; border-radius: 14px; overflow: hidden; background: #111827;
+        border: 1px solid #223046;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #111827;
     }
-    .stTabs [data-baseweb="tab-list"] { gap: .35rem; flex-wrap: wrap; }
+
+    .stTabs [data-baseweb="tab-list"] { gap: .3rem; flex-wrap: wrap; }
     .stTabs [data-baseweb="tab"] {
-        background: #162032; border-radius: 10px 10px 0 0; color: #d9e3f0; padding: .45rem .75rem;
+        background: #162032;
+        border-radius: 10px 10px 0 0;
+        color: #d9e3f0;
+        padding: .42rem .68rem;
     }
     .stTabs [aria-selected="true"] { background: #24324a !important; }
-    section[data-testid="stSidebar"] { background: #0f172a; border-right: 1px solid #1f2a3d; }
+
+    section[data-testid="stSidebar"] {
+        background: #0f172a;
+        border-right: 1px solid #1f2a3d;
+    }
     section[data-testid="stSidebar"]::before {
         content: "Search tickers";
         display: block;
         color: #f8fafc;
-        font-size: 1.05rem;
+        font-size: 1.02rem;
         font-weight: 800;
-        padding: 1rem 1rem 0.25rem 1rem;
+        padding: .9rem 1rem 0.2rem 1rem;
     }
+
     .stButton > button, .stLinkButton > a {
-        background: #2563eb !important; color: white !important; border: none !important;
-        border-radius: 10px !important; font-weight: 700 !important; width: 100%; text-align: center;
+        background: #2563eb !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        width: 100%;
+        text-align: center;
     }
     .stButton > button:hover, .stLinkButton > a:hover { background: #1d4ed8 !important; }
-    .stSelectbox label, .stTextInput label, .stSlider label { color: #dbe4f0 !important; font-weight: 600; }
+
+    .stSelectbox label, .stTextInput label, .stSlider label {
+        color: #dbe4f0 !important;
+        font-weight: 600;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -256,10 +317,10 @@ def build_candlestick_chart(hist: pd.DataFrame, result) -> go.Figure:
     ))
     fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["SMA20"], mode="lines", name="20D Avg", line=dict(color="#60a5fa", width=2)))
     for y, label, color in [(current_price, "Current", "#cbd5e1"), (support, "Support", "#f59e0b"), (resistance, "Resistance", "#a78bfa")]:
-        fig.add_hline(y=y, line_dash="dot", line_color=color, line_width=1.2, annotation_text=label, annotation_position="right", annotation_font_color=color)
+        fig.add_hline(y=y, line_dash="dot", line_color=color, line_width=1.1, annotation_text=label, annotation_position="right", annotation_font_color=color)
     fig.update_layout(
-        title=f"{safe_attr(result, 'ticker', 'Ticker')} Price", height=460, xaxis_rangeslider_visible=False, template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#0f172a", margin=dict(l=12, r=12, t=50, b=15),
+        title=f"{safe_attr(result, 'ticker', 'Ticker')} Price", height=420, xaxis_rangeslider_visible=False, template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#0f172a", margin=dict(l=10, r=10, t=46, b=12),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, bgcolor="rgba(0,0,0,0)"),
         font=dict(color="#e5edf8"), hovermode="x unified",
     )
@@ -273,10 +334,10 @@ def build_projection_chart(summary: pd.DataFrame, current_price: float) -> go.Fi
     fig.add_trace(go.Scatter(x=summary.index, y=summary["High Band (90%)"], mode="lines", line=dict(color="rgba(96,165,250,0.0)", width=0), showlegend=False))
     fig.add_trace(go.Scatter(x=summary.index, y=summary["Low Band (10%)"], mode="lines", fill="tonexty", fillcolor="rgba(96,165,250,0.18)", line=dict(color="rgba(96,165,250,0.0)", width=0), name="Projected Range"))
     fig.add_trace(go.Scatter(x=summary.index, y=summary["Median"], mode="lines", name="Median Path", line=dict(color="#60a5fa", width=3)))
-    fig.add_hline(y=current_price, line_dash="dot", line_color="#cbd5e1", line_width=1.2, annotation_text="Current", annotation_position="right", annotation_font_color="#cbd5e1")
+    fig.add_hline(y=current_price, line_dash="dot", line_color="#cbd5e1", line_width=1.1, annotation_text="Current", annotation_position="right", annotation_font_color="#cbd5e1")
     fig.update_layout(
-        title="Projection Range", height=320, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#0f172a",
-        margin=dict(l=12, r=12, t=50, b=15), font=dict(color="#e5edf8"), hovermode="x unified",
+        title="Projection Range", height=290, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#0f172a",
+        margin=dict(l=10, r=10, t=46, b=12), font=dict(color="#e5edf8"), hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, bgcolor="rgba(0,0,0,0)"),
     )
     fig.update_xaxes(showgrid=False, zeroline=False, title=None)
@@ -289,7 +350,7 @@ def build_simple_gauge(title: str, value: float, min_value: float, max_value: fl
         mode="gauge+number", value=value, title={"text": title},
         gauge={"axis": {"range": [min_value, max_value]}, "bar": {"color": "#60a5fa"}, "bgcolor": "#111827", "bordercolor": "#223046"}
     ))
-    fig.update_layout(height=190, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=10, r=10, t=35, b=5), font=dict(color="#e5edf8"))
+    fig.update_layout(height=175, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=8, r=8, t=28, b=0), font=dict(color="#e5edf8"))
     return fig
 
 
@@ -330,7 +391,7 @@ with share_tab:
         st.link_button("Open app link", APP_URL, use_container_width=True)
     with share_cols[1]:
         st.download_button("Download QR", data=build_qr_code(APP_URL), file_name="stock_predictor_qr.png", mime="image/png", use_container_width=True)
-    st.image(build_qr_code(APP_URL), caption="Scan to open on your phone", width=220)
+    st.image(build_qr_code(APP_URL), caption="Scan to open on your phone", width=210)
 
 with dashboard_tab:
     with st.sidebar:
@@ -356,17 +417,19 @@ with dashboard_tab:
 
         st.markdown(f'<div class="{signal_class(safe_attr(result, "model_signal", "WATCH"))}">{safe_attr(result, "model_signal", "WATCH")}</div>', unsafe_allow_html=True)
 
-        metrics_row1 = st.columns(4)
-        metrics_row1[0].metric("Price", f"${safe_attr(result, 'latest_close', 0.0):,.2f}")
-        metrics_row1[1].metric("Mood", safe_attr(result, "mood", "Neutral"))
-        metrics_row1[2].metric("Up probability", f"{safe_attr(result, 'next_day_up_probability', 0.5):.2%}")
-        metrics_row1[3].metric("Accuracy", f"{safe_attr(result, 'holdout_accuracy', 0.0):.2%}")
+        metric_cols_1 = st.columns(2 if st.session_state.get("_mobile_stub", False) else 4)
+        # Streamlit doesn't expose viewport reliably, so keep four cols; mobile stacks automatically enough.
+        metric_cols_1 = st.columns(4)
+        metric_cols_1[0].metric("Price", f"${safe_attr(result, 'latest_close', 0.0):,.2f}")
+        metric_cols_1[1].metric("Mood", safe_attr(result, "mood", "Neutral"))
+        metric_cols_1[2].metric("Up probability", f"{safe_attr(result, 'next_day_up_probability', 0.5):.2%}")
+        metric_cols_1[3].metric("Accuracy", f"{safe_attr(result, 'holdout_accuracy', 0.0):.2%}")
 
-        metrics_row2 = st.columns(4)
-        metrics_row2[0].metric("Momentum", f"{safe_attr(result, 'momentum_20d', 0.0):.2%}")
-        metrics_row2[1].metric("Volume", f"{safe_attr(result, 'volume_ratio', 1.0):.2f}x")
-        metrics_row2[2].metric("News tone", safe_attr(result, "sentiment_label", "Neutral"))
-        metrics_row2[3].metric("Earnings", safe_attr(result, "earnings_flag", "No date found"))
+        metric_cols_2 = st.columns(4)
+        metric_cols_2[0].metric("Momentum", f"{safe_attr(result, 'momentum_20d', 0.0):.2%}")
+        metric_cols_2[1].metric("Volume", f"{safe_attr(result, 'volume_ratio', 1.0):.2f}x")
+        metric_cols_2[2].metric("News tone", safe_attr(result, "sentiment_label", "Neutral"))
+        metric_cols_2[3].metric("Earnings", safe_attr(result, "earnings_flag", "No date found"))
 
         page_tabs = st.tabs(["Charts", "Details", "Headlines", "Share this ticker"])
 
@@ -375,9 +438,9 @@ with dashboard_tab:
             st.plotly_chart(build_projection_chart(summary, safe_attr(result, "latest_close", 0.0)), use_container_width=True)
 
         with page_tabs[1]:
-            detail_cols = st.columns([1, 1])
+            left, right = st.columns([1, 1])
 
-            with detail_cols[0]:
+            with left:
                 st.markdown('<div class="section-card">', unsafe_allow_html=True)
                 st.subheader("Indicators")
                 gauge_cols = st.columns(2)
@@ -407,7 +470,7 @@ with dashboard_tab:
                 st.markdown(flags_html, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            with detail_cols[1]:
+            with right:
                 st.markdown('<div class="section-card">', unsafe_allow_html=True)
                 st.subheader("Model summary")
                 rsi = safe_attr(result, "rsi_14", 50.0)
@@ -459,8 +522,8 @@ with dashboard_tab:
             st.write(f"Share a direct link to the {focus} dashboard.")
             st.code(ticker_url, language=None)
             st.link_button("Open direct ticker link", ticker_url, use_container_width=True)
-            st.image(build_qr_code(ticker_url), caption="Scan to open this ticker on your phone", width=180)
+            st.image(build_qr_code(ticker_url), caption="Scan to open this ticker on your phone", width=170)
 
-        st.caption("Movers are fixed as same-tab HTML pills with green/red colors.")
+        st.caption("Full features restored: details, headlines, same-tab mover pills, and cleaner mobile spacing.")
     else:
-        st.info("Search one ticker on the left and click Run dashboard.")
+        st.info("Search one ticker on the left or tap a mover above.")
