@@ -16,17 +16,13 @@ from predictor import generate_projection_chart_data, train_predict_for_ticker
 
 APP_URL = "https://stock-predictor-app-chqgww4vn5xvfzytgesxvv.streamlit.app/"
 
-
-# Read ticker from URL query params so links/buttons can open a ticker directly.
 query_params = st.query_params
 query_ticker = str(query_params.get("ticker", "AAPL")).strip().upper() if query_params.get("ticker", None) else "AAPL"
 
 if "active_ticker" not in st.session_state:
     st.session_state.active_ticker = query_ticker
-
 if query_ticker and query_ticker != st.session_state.active_ticker:
     st.session_state.active_ticker = query_ticker
-
 if "auto_run" not in st.session_state:
     st.session_state.auto_run = True
 
@@ -70,9 +66,6 @@ def build_qr_code(url: str) -> bytes:
 
 @st.cache_data(ttl=600, show_spinner=False)
 def fetch_sp500_symbols() -> list[str]:
-    """
-    Pull S&P 500 symbols from a stable public CSV mirror.
-    """
     urls = [
         "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/master/data/constituents.csv",
         "https://raw.githubusercontent.com/plotly/datasets/master/s-and-p-500-companies.csv",
@@ -83,12 +76,7 @@ def fetch_sp500_symbols() -> list[str]:
             for col in ["Symbol", "symbol"]:
                 if col in df.columns:
                     symbols = (
-                        df[col]
-                        .astype(str)
-                        .str.replace(".", "-", regex=False)
-                        .dropna()
-                        .unique()
-                        .tolist()
+                        df[col].astype(str).str.replace(".", "-", regex=False).dropna().unique().tolist()
                     )
                     if symbols:
                         return symbols
@@ -99,10 +87,6 @@ def fetch_sp500_symbols() -> list[str]:
 
 @st.cache_data(ttl=600, show_spinner=False)
 def fetch_sp500_top_movers(limit: int = 10) -> pd.DataFrame:
-    """
-    Returns top movers in the S&P 500 using latest available daily data.
-    Uses chunked downloads for better reliability on Streamlit.
-    """
     symbols = fetch_sp500_symbols()
     if not symbols:
         return pd.DataFrame(columns=["Ticker", "Last", "Change %", "Direction"])
@@ -111,77 +95,64 @@ def fetch_sp500_top_movers(limit: int = 10) -> pd.DataFrame:
 
     def chunks(seq, size):
         for i in range(0, len(seq), size):
-            yield seq[i:i + size]
+            yield seq[i:i+size]
 
-    try:
-        for group in chunks(symbols, 100):
+    for group in chunks(symbols, 100):
+        try:
+            data = yf.download(
+                tickers=" ".join(group),
+                period="5d",
+                interval="1d",
+                auto_adjust=False,
+                progress=False,
+                threads=True,
+                group_by="ticker",
+            )
+        except Exception:
+            continue
+
+        if data is None or len(data) == 0:
+            continue
+
+        for ticker in group:
             try:
-                data = yf.download(
-                    tickers=" ".join(group),
-                    period="5d",
-                    interval="1d",
-                    auto_adjust=False,
-                    progress=False,
-                    threads=True,
-                    group_by="ticker",
-                )
+                if isinstance(data.columns, pd.MultiIndex):
+                    if ticker not in data.columns.get_level_values(0):
+                        continue
+                    ticker_df = data[ticker].copy()
+                else:
+                    ticker_df = data.copy()
+
+                if "Close" not in ticker_df.columns:
+                    continue
+
+                close = pd.to_numeric(ticker_df["Close"], errors="coerce").dropna()
+                if len(close) < 2:
+                    continue
+
+                prev_close = float(close.iloc[-2])
+                last_close = float(close.iloc[-1])
+                if prev_close <= 0:
+                    continue
+
+                pct = ((last_close / prev_close) - 1.0) * 100.0
+                rows.append({"Ticker": ticker, "Last": last_close, "Change %": pct})
             except Exception:
                 continue
 
-            if data is None or len(data) == 0:
-                continue
-
-            for ticker in group:
-                try:
-                    if isinstance(data.columns, pd.MultiIndex):
-                        if ticker not in data.columns.get_level_values(0):
-                            continue
-                        ticker_df = data[ticker].copy()
-                    else:
-                        # Single-ticker fallback shape
-                        ticker_df = data.copy()
-
-                    if "Close" not in ticker_df.columns:
-                        continue
-
-                    close = pd.to_numeric(ticker_df["Close"], errors="coerce").dropna()
-                    if len(close) < 2:
-                        continue
-
-                    prev_close = float(close.iloc[-2])
-                    last_close = float(close.iloc[-1])
-                    if prev_close <= 0:
-                        continue
-
-                    pct = ((last_close / prev_close) - 1.0) * 100.0
-                    rows.append({
-                        "Ticker": ticker,
-                        "Last": last_close,
-                        "Change %": pct,
-                    })
-                except Exception:
-                    continue
-
-        movers = pd.DataFrame(rows)
-        if movers.empty:
-            return pd.DataFrame(columns=["Ticker", "Last", "Change %", "Direction"])
-
-        movers = movers.drop_duplicates(subset=["Ticker"]).copy()
-        movers["Abs Move"] = movers["Change %"].abs()
-        movers = movers.sort_values("Abs Move", ascending=False).head(limit).copy()
-        movers["Direction"] = movers["Change %"].apply(lambda x: "Up" if x >= 0 else "Down")
-        movers = movers.drop(columns=["Abs Move"])
-        return movers.reset_index(drop=True)
-
-    except Exception:
+    movers = pd.DataFrame(rows)
+    if movers.empty:
         return pd.DataFrame(columns=["Ticker", "Last", "Change %", "Direction"])
 
+    movers = movers.drop_duplicates(subset=["Ticker"]).copy()
+    movers["Abs Move"] = movers["Change %"].abs()
+    movers = movers.sort_values("Abs Move", ascending=False).head(limit).copy()
+    movers["Direction"] = movers["Change %"].apply(lambda x: "Up" if x >= 0 else "Down")
+    movers = movers.drop(columns=["Abs Move"])
+    return movers.reset_index(drop=True)
 
-st.set_page_config(
-    page_title="Stock Predictor",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+
+st.set_page_config(page_title="Stock Predictor", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
@@ -198,57 +169,10 @@ st.markdown("""
         padding: 0.95rem 1rem; border: 1px solid #223046; border-radius: 16px; background: #111827;
         box-shadow: 0 6px 20px rgba(0,0,0,0.18); margin-bottom: 0.9rem;
     }
-    .small-note, .muted { color: #a5b4c7; font-size: .92rem; margin-top: .35rem; }
+    .muted { color: #a5b4c7; font-size: .92rem; margin-top: .35rem; }
     .flag {
         padding: .42rem .66rem; border-radius: 999px; display: inline-block; margin: .18rem .22rem .18rem 0;
         background: #1b2638; border: 1px solid #314158; color: #e5edf8; font-size: .84rem;
-    }
-    .mover-up button {
-        background: #0b3b2e !important;
-        color: #86efac !important;
-        border: 1px solid #14532d !important;
-    }
-    .mover-up button:hover {
-        background: #14532d !important;
-        color: #dcfce7 !important;
-    }
-    .mover-down button {
-        background: #4c1717 !important;
-        color: #fca5a5 !important;
-        border: 1px solid #7f1d1d !important;
-    }
-    .mover-down button:hover {
-        background: #7f1d1d !important;
-        color: #fee2e2 !important;
-    }
-
-    .mover-link {
-        display: inline-block;
-        padding: .55rem .8rem;
-        border-radius: 12px;
-        margin: .18rem .22rem .18rem 0;
-        font-size: .88rem;
-        font-weight: 800;
-        text-decoration: none;
-        border: 1px solid transparent;
-    }
-    .mover-link-up {
-        background: #0b3b2e;
-        color: #86efac !important;
-        border-color: #14532d;
-    }
-    .mover-link-up:hover {
-        background: #14532d;
-        color: #dcfce7 !important;
-    }
-    .mover-link-down {
-        background: #4c1717;
-        color: #fca5a5 !important;
-        border-color: #7f1d1d;
-    }
-    .mover-link-down:hover {
-        background: #7f1d1d;
-        color: #fee2e2 !important;
     }
     .headline-card {
         padding: .8rem .9rem; border: 1px solid #223046; border-radius: 12px; background: #0f172a; margin-bottom: .6rem;
@@ -264,6 +188,23 @@ st.markdown("""
     .detail-list { margin: 0; padding-left: 1rem; color: #dbe4f0; line-height: 1.6; }
     .detail-label { color: #93c5fd; font-weight: 700; margin-bottom: .35rem; display: block; }
 
+    .mover-link {
+        display: inline-block;
+        padding: .56rem .82rem;
+        border-radius: 12px;
+        margin: .18rem .22rem .18rem 0;
+        font-size: .88rem;
+        font-weight: 800;
+        text-decoration: none !important;
+        border: 1px solid transparent;
+        transition: transform .08s ease;
+    }
+    .mover-link:hover { transform: translateY(-1px); }
+    .mover-up { background: #111827; color: #22c55e !important; border-color: #14532d; }
+    .mover-up:hover { background: #13261d; color: #86efac !important; }
+    .mover-down { background: #111827; color: #ef4444 !important; border-color: #7f1d1d; }
+    .mover-down:hover { background: #291212; color: #fca5a5 !important; }
+
     [data-testid="stMetric"] {
         background: #111827; border: 1px solid #223046; border-radius: 14px; padding: .55rem .7rem;
     }
@@ -277,7 +218,6 @@ st.markdown("""
         background: #162032; border-radius: 10px 10px 0 0; color: #d9e3f0; padding: .45rem .75rem;
     }
     .stTabs [aria-selected="true"] { background: #24324a !important; }
-
     section[data-testid="stSidebar"] { background: #0f172a; border-right: 1px solid #1f2a3d; }
     section[data-testid="stSidebar"]::before {
         content: "Search tickers";
@@ -287,7 +227,6 @@ st.markdown("""
         font-weight: 800;
         padding: 1rem 1rem 0.25rem 1rem;
     }
-
     .stButton > button, .stLinkButton > a {
         background: #2563eb !important; color: white !important; border: none !important;
         border-radius: 10px !important; font-weight: 700 !important; width: 100%; text-align: center;
@@ -305,7 +244,6 @@ def signal_class(signal: str) -> str:
 def build_candlestick_chart(hist: pd.DataFrame, result) -> go.Figure:
     chart_data = hist.tail(90).copy()
     chart_data["SMA20"] = chart_data["Close"].rolling(20).mean()
-
     current_price = safe_attr(result, "latest_close", float(chart_data["Close"].iloc[-1]))
     support = safe_attr(result, "support_level", float(chart_data["Low"].tail(30).min()))
     resistance = safe_attr(result, "resistance_level", float(chart_data["High"].tail(30).max()))
@@ -319,7 +257,6 @@ def build_candlestick_chart(hist: pd.DataFrame, result) -> go.Figure:
     fig.add_trace(go.Scatter(x=chart_data.index, y=chart_data["SMA20"], mode="lines", name="20D Avg", line=dict(color="#60a5fa", width=2)))
     for y, label, color in [(current_price, "Current", "#cbd5e1"), (support, "Support", "#f59e0b"), (resistance, "Resistance", "#a78bfa")]:
         fig.add_hline(y=y, line_dash="dot", line_color=color, line_width=1.2, annotation_text=label, annotation_position="right", annotation_font_color=color)
-
     fig.update_layout(
         title=f"{safe_attr(result, 'ticker', 'Ticker')} Price", height=460, xaxis_rangeslider_visible=False, template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#0f172a", margin=dict(l=12, r=12, t=50, b=15),
@@ -369,21 +306,15 @@ movers = fetch_sp500_top_movers(limit=10)
 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
 st.subheader("Live S&P 500 movers")
 if not movers.empty:
-    mover_cols = st.columns(5)
-    for idx, (_, row) in enumerate(movers.iterrows()):
+    mover_html = ""
+    for _, row in movers.iterrows():
         ticker = row["Ticker"]
         pct = float(row["Change %"])
         label = f"{ticker} {'▲' if pct >= 0 else '▼'} {pct:+.2f}%"
         css_class = "mover-up" if pct >= 0 else "mover-down"
-        with mover_cols[idx % 5]:
-            st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
-            if st.button(label, key=f"mover_{ticker}", use_container_width=True):
-                st.session_state.active_ticker = ticker
-                st.session_state.auto_run = True
-                st.query_params["ticker"] = ticker
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-    st.caption("Tap a mover to switch the dashboard instantly in the same page.")
+        mover_html += f'<a class="mover-link {css_class}" href="?ticker={ticker}" target="_self">{label}</a>'
+    st.markdown(mover_html, unsafe_allow_html=True)
+    st.caption("Tap a mover to switch the dashboard in this same tab.")
 else:
     st.caption("Top movers were not available right now.")
 st.markdown('</div>', unsafe_allow_html=True)
@@ -405,18 +336,19 @@ with dashboard_tab:
     with st.sidebar:
         st.markdown("<div class='muted'>Search one ticker at a time.</div>", unsafe_allow_html=True)
         search_ticker = st.text_input("Search ticker", value=st.session_state.active_ticker).strip().upper()
-        if search_ticker and search_ticker != st.session_state.active_ticker:
-            st.session_state.active_ticker = search_ticker
         period = st.selectbox("History period", options=["1y", "2y", "5y", "10y"], index=2)
         threshold = st.slider("Signal threshold", min_value=0.50, max_value=0.75, value=0.55, step=0.01)
         forecast_days = st.slider("Projection days", min_value=5, max_value=60, value=20, step=5)
         n_sims = st.slider("Projection paths", min_value=50, max_value=500, value=200, step=50)
         run = st.button("Run dashboard", use_container_width=True)
 
-    if run:
+    should_run = run or st.session_state.auto_run
+
+    if should_run:
         focus = search_ticker or st.session_state.active_ticker or "AAPL"
         st.session_state.active_ticker = focus
         st.query_params["ticker"] = focus
+        st.session_state.auto_run = False
 
         result = train_predict_for_ticker(focus, period=period, threshold=threshold)
         summary, _ = generate_projection_chart_data(result, forecast_days=forecast_days, n_sims=n_sims)
@@ -529,6 +461,6 @@ with dashboard_tab:
             st.link_button("Open direct ticker link", ticker_url, use_container_width=True)
             st.image(build_qr_code(ticker_url), caption="Scan to open this ticker on your phone", width=180)
 
-        st.caption("Now using one search box only, with same-page clickable movers across the top.")
+        st.caption("Movers are fixed as same-tab HTML pills with green/red colors.")
     else:
         st.info("Search one ticker on the left and click Run dashboard.")
