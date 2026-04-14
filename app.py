@@ -49,7 +49,6 @@ def fetch_live_headlines(ticker: str, limit: int = 8) -> list[dict]:
                 })
     except Exception:
         return []
-
     return items
 
 
@@ -71,15 +70,20 @@ st.markdown("""
     }
 
     .main .block-container {
-        padding-top: 1.2rem;
+        padding-top: 1rem;
         padding-bottom: 2rem;
+        max-width: 1220px;
     }
 
     @media (max-width: 768px) {
         .main .block-container {
-            padding-left: 0.8rem;
-            padding-right: 0.8rem;
+            padding-left: 0.7rem;
+            padding-right: 0.7rem;
+            padding-top: 0.8rem;
         }
+        h1 { font-size: 1.8rem !important; }
+        h2 { font-size: 1.25rem !important; }
+        h3 { font-size: 1.05rem !important; }
     }
 
     h1, h2, h3 {
@@ -87,28 +91,14 @@ st.markdown("""
         letter-spacing: -0.02em;
     }
 
-    .top-card {
-        padding: 1rem 1.1rem;
+    .hero {
+        padding: 0.95rem 1rem;
         border: 1px solid #223046;
         border-radius: 16px;
         background: #111827;
         box-shadow: 0 6px 20px rgba(0,0,0,0.18);
-        margin-bottom: 1rem;
+        margin-bottom: 0.9rem;
     }
-
-    .signal-buy, .signal-sell, .signal-watch {
-        padding: .85rem 1rem;
-        border-radius: 12px;
-        font-weight: 800;
-        text-align: center;
-        border: 1px solid transparent;
-        margin-bottom: .75rem;
-        letter-spacing: .02em;
-    }
-
-    .signal-buy { background: #0b3b2e; color: #6ee7b7; border-color: #14532d; }
-    .signal-sell { background: #4c1717; color: #fca5a5; border-color: #7f1d1d; }
-    .signal-watch { background: #5a3b10; color: #fcd34d; border-color: #92400e; }
 
     .small-note { color: #a5b4c7; font-size: .92rem; margin-top: .35rem; }
     .flag {
@@ -121,6 +111,7 @@ st.markdown("""
         color: #e5edf8;
         font-size: .84rem;
     }
+
     .headline-card {
         padding: .8rem .9rem;
         border: 1px solid #223046;
@@ -128,17 +119,32 @@ st.markdown("""
         background: #0f172a;
         margin-bottom: .6rem;
     }
+
     .headline-source {
         color: #93c5fd;
         font-size: .82rem;
         font-weight: 600;
     }
 
+    .signal-buy, .signal-sell, .signal-watch {
+        padding: .78rem .95rem;
+        border-radius: 12px;
+        font-weight: 800;
+        text-align: center;
+        border: 1px solid transparent;
+        margin-bottom: .75rem;
+        letter-spacing: .02em;
+    }
+
+    .signal-buy { background: #0b3b2e; color: #6ee7b7; border-color: #14532d; }
+    .signal-sell { background: #4c1717; color: #fca5a5; border-color: #7f1d1d; }
+    .signal-watch { background: #5a3b10; color: #fcd34d; border-color: #92400e; }
+
     [data-testid="stMetric"] {
         background: #111827;
         border: 1px solid #223046;
         border-radius: 14px;
-        padding: .65rem .8rem;
+        padding: .55rem .7rem;
     }
 
     [data-testid="stMetricLabel"] { color: #b8c4d6 !important; font-weight: 600; }
@@ -151,13 +157,18 @@ st.markdown("""
         background: #111827;
     }
 
-    .stTabs [data-baseweb="tab-list"] { gap: .4rem; }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: .35rem;
+        flex-wrap: wrap;
+    }
+
     .stTabs [data-baseweb="tab"] {
         background: #162032;
         border-radius: 10px 10px 0 0;
         color: #d9e3f0;
-        padding: .45rem .85rem;
+        padding: .45rem .75rem;
     }
+
     .stTabs [aria-selected="true"] { background: #24324a !important; }
 
     section[data-testid="stSidebar"] {
@@ -165,14 +176,17 @@ st.markdown("""
         border-right: 1px solid #1f2a3d;
     }
 
-    .stButton > button {
-        background: #2563eb;
-        color: white;
-        border: none;
-        border-radius: 10px;
-        font-weight: 700;
+    .stButton > button, .stLinkButton > a {
+        background: #2563eb !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        width: 100%;
+        text-align: center;
     }
-    .stButton > button:hover { background: #1d4ed8; color: white; }
+
+    .stButton > button:hover, .stLinkButton > a:hover { background: #1d4ed8 !important; }
 
     .stSelectbox label, .stTextInput label, .stSlider label {
         color: #dbe4f0 !important;
@@ -223,7 +237,7 @@ def build_candlestick_chart(hist: pd.DataFrame, result) -> go.Figure:
             y=y,
             line_dash="dot",
             line_color=color,
-            line_width=1.4,
+            line_width=1.2,
             annotation_text=label,
             annotation_position="right",
             annotation_font_color=color,
@@ -231,13 +245,13 @@ def build_candlestick_chart(hist: pd.DataFrame, result) -> go.Figure:
 
     fig.update_layout(
         title=f"{safe_attr(result, 'ticker', 'Ticker')} Price",
-        height=500,
+        height=460,
         xaxis_rangeslider_visible=False,
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#0f172a",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, bgcolor="rgba(0,0,0,0)"),
-        margin=dict(l=20, r=20, t=55, b=20),
+        margin=dict(l=12, r=12, t=50, b=15),
         font=dict(color="#e5edf8"),
         hovermode="x unified",
     )
@@ -275,7 +289,7 @@ def build_projection_chart(summary: pd.DataFrame, current_price: float) -> go.Fi
         y=current_price,
         line_dash="dot",
         line_color="#cbd5e1",
-        line_width=1.3,
+        line_width=1.2,
         annotation_text="Current",
         annotation_position="right",
         annotation_font_color="#cbd5e1",
@@ -283,11 +297,11 @@ def build_projection_chart(summary: pd.DataFrame, current_price: float) -> go.Fi
 
     fig.update_layout(
         title="Projection Range",
-        height=360,
+        height=320,
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#0f172a",
-        margin=dict(l=20, r=20, t=55, b=20),
+        margin=dict(l=12, r=12, t=50, b=15),
         font=dict(color="#e5edf8"),
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, bgcolor="rgba(0,0,0,0)"),
@@ -310,10 +324,10 @@ def build_simple_gauge(title: str, value: float, min_value: float, max_value: fl
         }
     ))
     fig.update_layout(
-        height=220,
+        height=190,
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=20, r=20, t=40, b=10),
+        margin=dict(l=10, r=10, t=35, b=5),
         font=dict(color="#e5edf8"),
     )
     return fig
@@ -321,22 +335,33 @@ def build_simple_gauge(title: str, value: float, min_value: float, max_value: fl
 
 header_left, header_right = st.columns([3, 1])
 with header_left:
+    st.markdown('<div class="hero">', unsafe_allow_html=True)
     st.title("Stock Predictor")
-    st.caption("A cleaner stock dashboard with ranked tickers, simpler charts, live headlines, projection ranges, and quick trading cues.")
+    st.caption("Responsive stock dashboard for desktop and mobile.")
+    st.markdown('</div>', unsafe_allow_html=True)
 with header_right:
     st.link_button("📲 Share App", APP_URL, use_container_width=True)
 
-share_tab, app_tab = st.tabs(["Share", "Dashboard"])
+share_tab, dashboard_tab = st.tabs(["Share", "Dashboard"])
 
 with share_tab:
     st.subheader("Share with friends")
-    st.write("Open this link on desktop or mobile, or scan the QR code below.")
+    st.write("Send this link or scan the QR code on a phone.")
     st.code(APP_URL, language=None)
-    st.link_button("Open share link", APP_URL)
-    qr_bytes = build_qr_code(APP_URL)
-    st.image(qr_bytes, caption="Scan to open on your phone", width=220)
+    share_cols = st.columns([1, 1])
+    with share_cols[0]:
+        st.link_button("Open app link", APP_URL, use_container_width=True)
+    with share_cols[1]:
+        st.download_button(
+            "Download QR",
+            data=build_qr_code(APP_URL),
+            file_name="stock_predictor_qr.png",
+            mime="image/png",
+            use_container_width=True,
+        )
+    st.image(build_qr_code(APP_URL), caption="Scan to open on your phone", width=220)
 
-with app_tab:
+with dashboard_tab:
     with st.sidebar:
         st.header("Inputs")
         tickers_text = st.text_input("Ticker list", value="AAPL, MSFT, NVDA, SPY, TSLA")
@@ -345,14 +370,13 @@ with app_tab:
         threshold = st.slider("Signal threshold", min_value=0.50, max_value=0.75, value=0.55, step=0.01)
         forecast_days = st.slider("Projection days", min_value=5, max_value=60, value=20, step=5)
         n_sims = st.slider("Projection paths", min_value=50, max_value=500, value=200, step=50)
-        run = st.button("Run", use_container_width=True)
+        run = st.button("Run dashboard", use_container_width=True)
 
     if run:
         tickers = [t.strip().upper() for t in tickers_text.split(",") if t.strip()]
         with st.spinner("Loading market view..."):
             df = screen_tickers(tickers, period=period, threshold=threshold)
 
-        st.markdown('<div class="top-card">', unsafe_allow_html=True)
         st.subheader("Watchlist")
         display_df = df.copy()
         for col in ["Latest Close"]:
@@ -365,8 +389,7 @@ with app_tab:
             if col in display_df.columns:
                 display_df[col] = display_df[col].map(lambda x: f"{x:,.2f}" if pd.notnull(x) else "")
         st.dataframe(display_df, use_container_width=True, hide_index=True)
-        st.markdown('<div class="small-note">Choose the ticker you want to study in the sidebar under "Main ticker to view".</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.caption('Choose the ticker you want to study in the sidebar under "Main ticker to view".')
 
         focus = selected_ticker.strip().upper() if selected_ticker.strip() else None
         if focus not in tickers and len(tickers) > 0:
@@ -376,56 +399,53 @@ with app_tab:
         summary, _ = generate_projection_chart_data(result, forecast_days=forecast_days, n_sims=n_sims)
         live_headlines = fetch_live_headlines(focus, limit=8)
 
-        left, right = st.columns([1, 2])
+        st.markdown(f'<div class="{signal_class(safe_attr(result, "model_signal", "WATCH"))}">{safe_attr(result, "model_signal", "WATCH")}</div>', unsafe_allow_html=True)
 
-        with left:
-            st.markdown(f'<div class="{signal_class(safe_attr(result, "model_signal", "WATCH"))}">{safe_attr(result, "model_signal", "WATCH")}</div>', unsafe_allow_html=True)
+        metrics_row1 = st.columns(4)
+        metrics_row1[0].metric("Price", f"${safe_attr(result, 'latest_close', 0.0):,.2f}")
+        metrics_row1[1].metric("Mood", safe_attr(result, "mood", "Neutral"))
+        metrics_row1[2].metric("Up probability", f"{safe_attr(result, 'next_day_up_probability', 0.5):.2%}")
+        metrics_row1[3].metric("Accuracy", f"{safe_attr(result, 'holdout_accuracy', 0.0):.2%}")
 
-            a, b = st.columns(2)
-            a.metric("Price", f"${safe_attr(result, 'latest_close', 0.0):,.2f}")
-            b.metric("Mood", safe_attr(result, "mood", "Neutral"))
+        metrics_row2 = st.columns(4)
+        metrics_row2[0].metric("Momentum", f"{safe_attr(result, 'momentum_20d', 0.0):.2%}")
+        metrics_row2[1].metric("Volume", f"{safe_attr(result, 'volume_ratio', 1.0):.2f}x")
+        metrics_row2[2].metric("News tone", safe_attr(result, "sentiment_label", "Neutral"))
+        metrics_row2[3].metric("Earnings", safe_attr(result, "earnings_flag", "No date found"))
 
-            c, d = st.columns(2)
-            c.metric("Up probability", f"{safe_attr(result, 'next_day_up_probability', 0.5):.2%}")
-            d.metric("Accuracy", f"{safe_attr(result, 'holdout_accuracy', 0.0):.2%}")
+        chart_tabs = st.tabs(["Charts", "Details", "Headlines", "Share this ticker"])
 
-            e, f = st.columns(2)
-            e.metric("Momentum", f"{safe_attr(result, 'momentum_20d', 0.0):.2%}")
-            f.metric("Volume", f"{safe_attr(result, 'volume_ratio', 1.0):.2f}x")
-
-            g, h = st.columns(2)
-            g.metric("News tone", safe_attr(result, "sentiment_label", "Neutral"))
-            h.metric("Earnings", safe_attr(result, "earnings_flag", "No date found"))
-
-            st.plotly_chart(build_simple_gauge("RSI", max(0, min(100, safe_attr(result, "rsi_14", 50.0))), 0, 100), use_container_width=True)
-            st.plotly_chart(build_simple_gauge("News Sentiment", max(-1, min(1, safe_attr(result, "sentiment_score", 0.0))), -1, 1), use_container_width=True)
-
-            st.subheader("Key levels")
-            levels_df = pd.DataFrame({
-                "Item": ["Support", "Resistance", "Stop loss", "Target 1", "Target 2"],
-                "Value": [
-                    safe_attr(result, "support_level", 0.0),
-                    safe_attr(result, "resistance_level", 0.0),
-                    safe_attr(result, "stop_loss", 0.0),
-                    safe_attr(result, "target_1", 0.0),
-                    safe_attr(result, "target_2", 0.0),
-                ],
-            })
-            levels_df["Value"] = levels_df["Value"].map(lambda x: f"${x:,.2f}")
-            st.dataframe(levels_df, use_container_width=True, hide_index=True)
-
-            st.subheader("Flags")
-            flags = safe_attr(result, "watchlist_flags", ["No major alert flags"])
-            flags_html = "".join([f'<span class="flag">{flag}</span>' for flag in flags])
-            st.markdown(flags_html, unsafe_allow_html=True)
-
-        with right:
+        with chart_tabs[0]:
             st.plotly_chart(build_candlestick_chart(result.history, result), use_container_width=True)
             st.plotly_chart(build_projection_chart(summary, safe_attr(result, "latest_close", 0.0)), use_container_width=True)
 
-            tabs = st.tabs(["Summary", "Latest headlines", "Feature importance"])
+        with chart_tabs[1]:
+            top_left, top_right = st.columns([1, 1])
+            with top_left:
+                st.plotly_chart(build_simple_gauge("RSI", max(0, min(100, safe_attr(result, "rsi_14", 50.0))), 0, 100), use_container_width=True)
+            with top_right:
+                st.plotly_chart(build_simple_gauge("News Sentiment", max(-1, min(1, safe_attr(result, "sentiment_score", 0.0))), -1, 1), use_container_width=True)
 
-            with tabs[0]:
+            detail_subtabs = st.tabs(["Key levels", "Summary", "Feature importance"])
+            with detail_subtabs[0]:
+                levels_df = pd.DataFrame({
+                    "Item": ["Support", "Resistance", "Stop loss", "Target 1", "Target 2"],
+                    "Value": [
+                        safe_attr(result, "support_level", 0.0),
+                        safe_attr(result, "resistance_level", 0.0),
+                        safe_attr(result, "stop_loss", 0.0),
+                        safe_attr(result, "target_1", 0.0),
+                        safe_attr(result, "target_2", 0.0),
+                    ],
+                })
+                levels_df["Value"] = levels_df["Value"].map(lambda x: f"${x:,.2f}")
+                st.dataframe(levels_df, use_container_width=True, hide_index=True)
+                st.subheader("Flags")
+                flags = safe_attr(result, "watchlist_flags", ["No major alert flags"])
+                flags_html = "".join([f'<span class="flag">{flag}</span>' for flag in flags])
+                st.markdown(flags_html, unsafe_allow_html=True)
+
+            with detail_subtabs[1]:
                 notes = []
                 rsi = safe_attr(result, "rsi_14", 50.0)
                 notes.append(f"Signal: {safe_attr(result, 'model_signal', 'WATCH')}")
@@ -436,30 +456,7 @@ with app_tab:
                 for note in notes:
                     st.write(f"- {note}")
 
-            with tabs[1]:
-                if live_headlines:
-                    st.caption(f"Latest headlines for {focus}. Refresh or rerun later for newer items.")
-                    for item in live_headlines:
-                        source = item.get("source", "")
-                        published = item.get("published", "")
-                        title = item.get("title", "")
-                        link = item.get("link", "")
-                        source_line = f"{source} • {published}" if source and published else source or published
-                        st.markdown(
-                            f"""
-                            <div class="headline-card">
-                                <div class="headline-source">{source_line}</div>
-                                <div style="margin-top:.28rem;">
-                                    <a href="{link}" target="_blank" style="color:#f8fafc; text-decoration:none; font-weight:600;">{title}</a>
-                                </div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-                else:
-                    st.write("No live headlines were returned right now. Try rerunning in a few minutes.")
-
-            with tabs[2]:
+            with detail_subtabs[2]:
                 feature_df = pd.DataFrame(safe_attr(result, "top_features", []), columns=["Feature", "Importance"])
                 if not feature_df.empty:
                     feature_df["Importance"] = feature_df["Importance"].map(lambda x: f"{x:.3f}")
@@ -467,6 +464,35 @@ with app_tab:
                 else:
                     st.write("No feature importance data available.")
 
-        st.caption("This version adds a top share button, a QR code share tab, and mobile-friendly spacing.")
+        with chart_tabs[2]:
+            if live_headlines:
+                st.caption(f"Latest headlines for {focus}. Refresh or rerun later for newer items.")
+                for item in live_headlines:
+                    source = item.get("source", "")
+                    published = item.get("published", "")
+                    title = item.get("title", "")
+                    link = item.get("link", "")
+                    source_line = f"{source} • {published}" if source and published else source or published
+                    st.markdown(
+                        f"""
+                        <div class="headline-card">
+                            <div class="headline-source">{source_line}</div>
+                            <div style="margin-top:.28rem;">
+                                <a href="{link}" target="_blank" style="color:#f8fafc; text-decoration:none; font-weight:600;">{title}</a>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.write("No live headlines were returned right now. Try rerunning in a few minutes.")
+
+        with chart_tabs[3]:
+            st.write("Share the main app link with friends and have them pick the same ticker.")
+            st.code(APP_URL, language=None)
+            st.link_button("Open app link", APP_URL, use_container_width=True)
+            st.image(build_qr_code(APP_URL), caption="Scan to open on your phone", width=180)
+
+        st.caption("Responsive update: stacked sections, simplified tab flow, and better mobile behavior without losing desktop readability.")
     else:
-        st.info("Enter your tickers on the left and click Run.")
+        st.info("Enter your tickers on the left and click Run dashboard.")

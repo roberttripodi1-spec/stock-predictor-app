@@ -1,11 +1,12 @@
-# Stock Predictor Share + Mobile
+# Stock Predictor Responsive UI
 
-This version adds:
-- top share button
-- dedicated share tab
-- QR code for phone access
-- mobile-friendly spacing
-- same live headlines and cleaner chart layout
+This version is optimized for both mobile and desktop:
+- cleaner hero header
+- simpler stacked layout
+- metrics grouped into compact rows
+- charts split from details and headlines
+- share actions easier to tap on mobile
+- tighter chart sizing and spacing
 
 ## Deploy
 Replace the repo files with these updated versions and let Streamlit redeploy.
