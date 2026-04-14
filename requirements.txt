@@ -1,8 +1,6 @@
-pandas
-numpy
-scikit-learn
-yfinance
 streamlit
+yfinance
 plotly
+pandas
 requests
-qrcode[pil]
+qrcode
