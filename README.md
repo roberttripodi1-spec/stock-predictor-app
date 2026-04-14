@@ -1,10 +1,9 @@
-# Stock Predictor Clickable Movers
+# Stock Predictor Clickable Movers Autorun
 
-This version makes the top movers clickable.
-Clicking a mover:
-- sets the active ticker
-- updates the dashboard as if you searched that ticker yourself
-- updates the share link to open directly on that ticker
+This version updates the movers strip so:
+- movers are green/red again
+- clicking a mover immediately opens and runs that ticker dashboard
+- no extra Run click is needed after selecting a mover
 
 ## Deploy
 Replace the repo files with these updated versions and let Streamlit redeploy.

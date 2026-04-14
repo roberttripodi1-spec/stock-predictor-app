@@ -27,6 +27,9 @@ if "active_ticker" not in st.session_state:
 if query_ticker and query_ticker != st.session_state.active_ticker:
     st.session_state.active_ticker = query_ticker
 
+if "auto_run" not in st.session_state:
+    st.session_state.auto_run = True
+
 
 def safe_attr(obj, name, default):
     return getattr(obj, name, default)
@@ -213,6 +216,25 @@ st.markdown("""
     }
     .ticker-up { color: #86efac; }
     .ticker-down { color: #fca5a5; }
+
+    .mover-up button {
+        background: #0b3b2e !important;
+        color: #86efac !important;
+        border: 1px solid #14532d !important;
+    }
+    .mover-up button:hover {
+        background: #14532d !important;
+        color: #dcfce7 !important;
+    }
+    .mover-down button {
+        background: #4c1717 !important;
+        color: #fca5a5 !important;
+        border: 1px solid #7f1d1d !important;
+    }
+    .mover-down button:hover {
+        background: #7f1d1d !important;
+        color: #fee2e2 !important;
+    }
     .headline-card {
         padding: .8rem .9rem; border: 1px solid #223046; border-radius: 12px; background: #0f172a; margin-bottom: .6rem;
     }
@@ -337,12 +359,16 @@ if not movers.empty:
         ticker = row["Ticker"]
         pct = float(row["Change %"])
         label = f"{ticker} {'▲' if pct >= 0 else '▼'} {pct:+.2f}%"
+        css_class = "mover-up" if pct >= 0 else "mover-down"
         with mover_cols[idx % 5]:
+            st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
             if st.button(label, key=f"mover_{ticker}", use_container_width=True):
                 st.session_state.active_ticker = ticker
+                st.session_state.auto_run = True
                 st.query_params["ticker"] = ticker
                 st.rerun()
-    st.caption("Tap a mover to open that ticker's dashboard. Latest available S&P 500 movers from the current market data feed.")
+            st.markdown('</div>', unsafe_allow_html=True)
+    st.caption("Tap a mover to open that ticker's dashboard automatically. Latest available S&P 500 movers from the current market data feed.")
 else:
     st.caption("Top movers were not available right now.")
 st.markdown('</div>', unsafe_allow_html=True)
@@ -364,6 +390,8 @@ with dashboard_tab:
     with st.sidebar:
         st.markdown("<div class='muted'>Search one ticker at a time.</div>", unsafe_allow_html=True)
         search_ticker = st.text_input("Search ticker", value=st.session_state.active_ticker).strip().upper()
+        if search_ticker and search_ticker != st.session_state.active_ticker:
+            st.session_state.active_ticker = search_ticker
         period = st.selectbox("History period", options=["1y", "2y", "5y", "10y"], index=2)
         threshold = st.slider("Signal threshold", min_value=0.50, max_value=0.75, value=0.55, step=0.01)
         forecast_days = st.slider("Projection days", min_value=5, max_value=60, value=20, step=5)
