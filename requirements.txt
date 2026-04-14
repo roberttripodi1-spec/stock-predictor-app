@@ -5,3 +5,4 @@ yfinance
 streamlit
 plotly
 requests
+qrcode[pil]
