@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterable
 
-import joblib
 import numpy as np
 import pandas as pd
 import yfinance as yf
@@ -88,7 +86,7 @@ def download_history(ticker: str, period: str = "5y") -> pd.DataFrame:
     data = yf.download(ticker.upper().strip(), period=period, auto_adjust=True, progress=False)
     if data.empty:
         raise ValueError(f"No data returned for {ticker}")
-    return data
+    return normalize_columns(data)
 
 
 def train_test_split_time(data: pd.DataFrame, train_size: float = 0.8):
@@ -109,10 +107,46 @@ class ModelResult:
     top_features: list[tuple[str, float]]
     strategy_return: float
     buy_hold_return: float
+    history: pd.DataFrame
+    features_data: pd.DataFrame
+    model_signal: str
+    support_level: float
+    resistance_level: float
+    stop_loss: float
+    target_1: float
+    target_2: float
+
+
+def derive_signal(prob: float, price: float, sma20: float, rsi: float) -> str:
+    if prob >= 0.60 and price >= sma20 and rsi < 72:
+        return "BUY"
+    if prob <= 0.40 and price < sma20:
+        return "SELL"
+    return "WATCH"
+
+
+def generate_trade_levels(history: pd.DataFrame, latest_close: float) -> dict:
+    recent = history.tail(30).copy()
+    support = float(recent["Low"].min())
+    resistance = float(recent["High"].max())
+    atr_proxy = float((recent["High"] - recent["Low"]).rolling(14).mean().dropna().iloc[-1]) if len(recent) >= 14 else float((recent["High"] - recent["Low"]).mean())
+
+    stop_loss = max(0.01, latest_close - atr_proxy * 1.25)
+    target_1 = latest_close + atr_proxy * 1.0
+    target_2 = latest_close + atr_proxy * 2.0
+
+    return {
+        "support_level": support,
+        "resistance_level": resistance,
+        "stop_loss": stop_loss,
+        "target_1": target_1,
+        "target_2": target_2,
+    }
 
 
 def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float = 0.55) -> ModelResult:
     raw = download_history(ticker, period=period)
+    hist = raw.copy()
     data = prepare_features(raw)
 
     if len(data) < 200:
@@ -153,16 +187,30 @@ def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float =
         .head(8)
     )
 
+    latest_close = float(data["Close"].iloc[-1])
+    latest_sma20 = float(data["sma_20"].iloc[-1])
+    latest_rsi = float(data["rsi_14"].iloc[-1])
+    model_signal = derive_signal(next_up_prob, latest_close, latest_sma20, latest_rsi)
+    levels = generate_trade_levels(hist, latest_close)
+
     return ModelResult(
         ticker=ticker.upper(),
         rows_used=len(data),
         holdout_accuracy=float(acc),
         next_day_up_probability=next_up_prob,
-        latest_close=float(data["Close"].iloc[-1]),
+        latest_close=latest_close,
         latest_date=str(data.index[-1].date()),
         top_features=[(k, float(v)) for k, v in importances.items()],
         strategy_return=strategy_total,
         buy_hold_return=buy_hold_total,
+        history=hist,
+        features_data=data,
+        model_signal=model_signal,
+        support_level=levels["support_level"],
+        resistance_level=levels["resistance_level"],
+        stop_loss=levels["stop_loss"],
+        target_1=levels["target_1"],
+        target_2=levels["target_2"],
     )
 
 
@@ -176,22 +224,28 @@ def screen_tickers(tickers: Iterable[str], period: str = "5y", threshold: float 
             result = train_predict_for_ticker(t, period=period, threshold=threshold)
             rows.append({
                 "Ticker": result.ticker,
+                "Signal": result.model_signal,
                 "Latest Date": result.latest_date,
                 "Latest Close": result.latest_close,
                 "Up Probability": result.next_day_up_probability,
                 "Holdout Accuracy": result.holdout_accuracy,
                 "Strategy Return": result.strategy_return,
                 "Buy & Hold Return": result.buy_hold_return,
+                "Support": result.support_level,
+                "Resistance": result.resistance_level,
             })
         except Exception as exc:
             rows.append({
                 "Ticker": t,
+                "Signal": "ERROR",
                 "Latest Date": "",
                 "Latest Close": np.nan,
                 "Up Probability": np.nan,
                 "Holdout Accuracy": np.nan,
                 "Strategy Return": np.nan,
                 "Buy & Hold Return": np.nan,
+                "Support": np.nan,
+                "Resistance": np.nan,
                 "Error": str(exc),
             })
 
@@ -201,24 +255,48 @@ def screen_tickers(tickers: Iterable[str], period: str = "5y", threshold: float 
     return df.reset_index(drop=True)
 
 
-def save_model(ticker: str, period: str = "5y", out_dir: str = "model_output") -> Path:
-    raw = download_history(ticker, period=period)
-    data = prepare_features(raw)
-    x_train, x_test, y_train, y_test = train_test_split_time(data)
+def generate_projection_chart_data(
+    result: ModelResult,
+    forecast_days: int = 20,
+    n_sims: int = 200,
+    lookback_days: int = 60,
+    seed: int = 42,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    rng = np.random.default_rng(seed)
 
-    model = RandomForestClassifier(
-        n_estimators=300,
-        max_depth=8,
-        min_samples_split=10,
-        min_samples_leaf=5,
-        random_state=42,
-        class_weight="balanced_subsample",
-        n_jobs=-1,
-    )
-    model.fit(x_train, y_train)
+    hist = result.history.copy()
+    close = hist["Close"].dropna().copy()
 
-    out = Path(out_dir)
-    out.mkdir(exist_ok=True)
-    model_path = out / f"{ticker.upper()}_model.joblib"
-    joblib.dump(model, model_path)
-    return model_path
+    returns = close.pct_change().dropna()
+    recent_returns = returns.tail(lookback_days)
+    if len(recent_returns) < 20:
+        recent_returns = returns.tail(min(len(returns), 60))
+
+    base_mu = float(recent_returns.mean())
+    sigma = float(recent_returns.std())
+    sigma = max(sigma, 0.0001)
+
+    tilt = (result.next_day_up_probability - 0.5) * sigma * 0.5
+    drift = base_mu + tilt
+
+    last_price = float(close.iloc[-1])
+    future_index = pd.bdate_range(start=close.index[-1] + pd.Timedelta(days=1), periods=forecast_days)
+
+    paths = np.zeros((forecast_days, n_sims))
+    for s in range(n_sims):
+        price = last_price
+        for day in range(forecast_days):
+            shock = rng.normal(drift, sigma)
+            price = max(0.01, price * (1 + shock))
+            paths[day, s] = price
+
+    path_df = pd.DataFrame(paths, index=future_index, columns=[f"path_{i+1}" for i in range(n_sims)])
+
+    summary = pd.DataFrame(index=future_index)
+    summary["Median"] = path_df.median(axis=1)
+    summary["Low Band (10%)"] = path_df.quantile(0.10, axis=1)
+    summary["High Band (90%)"] = path_df.quantile(0.90, axis=1)
+    summary["Bull Case (95%)"] = path_df.quantile(0.95, axis=1)
+    summary["Bear Case (5%)"] = path_df.quantile(0.05, axis=1)
+
+    return summary, path_df

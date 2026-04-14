@@ -7,9 +7,9 @@ from predictor import screen_tickers
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Screen multiple tickers with a simple stock predictor.")
+    parser = argparse.ArgumentParser(description="Screen multiple tickers with the stock dashboard model.")
     parser.add_argument("--tickers", required=True, help="Comma-separated tickers, e.g. AAPL,MSFT,NVDA")
-    parser.add_argument("--period", default="5y", help="History period, e.g. 1y, 5y, 10y")
+    parser.add_argument("--period", default="5y", help="History period")
     parser.add_argument("--threshold", type=float, default=0.55, help="Signal threshold")
     parser.add_argument("--out", default="screen_results.csv", help="Output CSV file path")
     args = parser.parse_args()
