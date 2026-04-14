@@ -1,10 +1,11 @@
-# Stock Predictor Details Cleanup
+# Stock Predictor Single Search + Watchlist
 
-This version cleans up the Details page by:
-- removing the nested tabs inside Details
-- grouping content into clear section cards
-- separating indicators, key levels, model summary, and feature importance
-- improving readability on both desktop and mobile
+This version changes the sidebar flow:
+- sidebar labeled "Search tickers"
+- one stock search at a time
+- add searched ticker to a saved list
+- flip through saved tickers with previous/next buttons
+- keep one active ticker in view while still maintaining a watchlist
 
 ## Deploy
 Replace the repo files with these updated versions and let Streamlit redeploy.

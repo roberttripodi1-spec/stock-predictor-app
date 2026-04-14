@@ -53,7 +53,16 @@ def build_qr_code(url: str) -> bytes:
     return buf.getvalue()
 
 
-st.set_page_config(page_title="Stock Predictor", layout="wide")
+st.set_page_config(
+    page_title="Stock Predictor",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+if "watchlist" not in st.session_state:
+    st.session_state.watchlist = ["AAPL"]
+if "current_ticker" not in st.session_state:
+    st.session_state.current_ticker = "AAPL"
 
 st.markdown("""
 <style>
@@ -67,12 +76,8 @@ st.markdown("""
     }
     h1, h2, h3 { color: #f8fafc !important; letter-spacing: -0.02em; }
     .hero, .section-card {
-        padding: 0.95rem 1rem;
-        border: 1px solid #223046;
-        border-radius: 16px;
-        background: #111827;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.18);
-        margin-bottom: 0.9rem;
+        padding: 0.95rem 1rem; border: 1px solid #223046; border-radius: 16px; background: #111827;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.18); margin-bottom: 0.9rem;
     }
     .small-note, .muted { color: #a5b4c7; font-size: .92rem; margin-top: .35rem; }
     .flag {
@@ -90,10 +95,7 @@ st.markdown("""
     .signal-buy { background: #0b3b2e; color: #6ee7b7; border-color: #14532d; }
     .signal-sell { background: #4c1717; color: #fca5a5; border-color: #7f1d1d; }
     .signal-watch { background: #5a3b10; color: #fcd34d; border-color: #92400e; }
-
-    .detail-list {
-        margin: 0; padding-left: 1rem; color: #dbe4f0; line-height: 1.6;
-    }
+    .detail-list { margin: 0; padding-left: 1rem; color: #dbe4f0; line-height: 1.6; }
     .detail-label { color: #93c5fd; font-weight: 700; margin-bottom: .35rem; display: block; }
 
     [data-testid="stMetric"] {
@@ -109,7 +111,19 @@ st.markdown("""
         background: #162032; border-radius: 10px 10px 0 0; color: #d9e3f0; padding: .45rem .75rem;
     }
     .stTabs [aria-selected="true"] { background: #24324a !important; }
-    section[data-testid="stSidebar"] { background: #0f172a; border-right: 1px solid #1f2a3d; }
+
+    section[data-testid="stSidebar"] {
+        background: #0f172a; border-right: 1px solid #1f2a3d;
+    }
+    section[data-testid="stSidebar"]::before {
+        content: "Search tickers";
+        display: block;
+        color: #f8fafc;
+        font-size: 1.05rem;
+        font-weight: 800;
+        padding: 1rem 1rem 0.25rem 1rem;
+    }
+
     .stButton > button, .stLinkButton > a {
         background: #2563eb !important; color: white !important; border: none !important;
         border-radius: 10px !important; font-weight: 700 !important; width: 100%; text-align: center;
@@ -202,9 +216,42 @@ with share_tab:
 
 with dashboard_tab:
     with st.sidebar:
-        st.header("Inputs")
-        tickers_text = st.text_input("Ticker list", value="AAPL, MSFT, NVDA, SPY, TSLA")
-        selected_ticker = st.text_input("Main ticker to view", value="AAPL")
+        st.markdown("<div class='muted'>Look up one ticker at a time and build a watchlist you can flip through.</div>", unsafe_allow_html=True)
+        search_ticker = st.text_input("Search ticker", value=st.session_state.current_ticker).strip().upper()
+
+        add_col, clear_col = st.columns(2)
+        with add_col:
+            if st.button("Add to list", use_container_width=True):
+                if search_ticker and search_ticker not in st.session_state.watchlist:
+                    st.session_state.watchlist.append(search_ticker)
+                if search_ticker:
+                    st.session_state.current_ticker = search_ticker
+        with clear_col:
+            if st.button("Remove current", use_container_width=True):
+                cur = st.session_state.current_ticker
+                if cur in st.session_state.watchlist and len(st.session_state.watchlist) > 1:
+                    st.session_state.watchlist.remove(cur)
+                    st.session_state.current_ticker = st.session_state.watchlist[0]
+
+        st.selectbox(
+            "Saved list",
+            options=st.session_state.watchlist,
+            index=st.session_state.watchlist.index(st.session_state.current_ticker) if st.session_state.current_ticker in st.session_state.watchlist else 0,
+            key="selected_watchlist_ticker",
+        )
+        st.session_state.current_ticker = st.session_state.selected_watchlist_ticker
+
+        nav_prev, nav_next = st.columns(2)
+        current_index = st.session_state.watchlist.index(st.session_state.current_ticker)
+        with nav_prev:
+            if st.button("◀ Previous", use_container_width=True):
+                st.session_state.current_ticker = st.session_state.watchlist[(current_index - 1) % len(st.session_state.watchlist)]
+                st.session_state.selected_watchlist_ticker = st.session_state.current_ticker
+        with nav_next:
+            if st.button("Next ▶", use_container_width=True):
+                st.session_state.current_ticker = st.session_state.watchlist[(current_index + 1) % len(st.session_state.watchlist)]
+                st.session_state.selected_watchlist_ticker = st.session_state.current_ticker
+
         period = st.selectbox("History period", options=["1y", "2y", "5y", "10y"], index=2)
         threshold = st.slider("Signal threshold", min_value=0.50, max_value=0.75, value=0.55, step=0.01)
         forecast_days = st.slider("Projection days", min_value=5, max_value=60, value=20, step=5)
@@ -212,9 +259,11 @@ with dashboard_tab:
         run = st.button("Run dashboard", use_container_width=True)
 
     if run:
-        tickers = [t.strip().upper() for t in tickers_text.split(",") if t.strip()]
+        focus = st.session_state.current_ticker
+        watchlist = st.session_state.watchlist
+
         with st.spinner("Loading market view..."):
-            df = screen_tickers(tickers, period=period, threshold=threshold)
+            df = screen_tickers(watchlist, period=period, threshold=threshold)
 
         st.subheader("Watchlist")
         display_df = df.copy()
@@ -228,11 +277,7 @@ with dashboard_tab:
             if col in display_df.columns:
                 display_df[col] = display_df[col].map(lambda x: f"{x:,.2f}" if pd.notnull(x) else "")
         st.dataframe(display_df, use_container_width=True, hide_index=True)
-        st.caption('Choose the ticker you want to study in the sidebar under "Main ticker to view".')
-
-        focus = selected_ticker.strip().upper() if selected_ticker.strip() else None
-        if focus not in tickers and len(tickers) > 0:
-            focus = tickers[0]
+        st.caption(f'Viewing: {focus} • Saved list: {", ".join(watchlist)}')
 
         result = train_predict_for_ticker(focus, period=period, threshold=threshold)
         summary, _ = generate_projection_chart_data(result, forecast_days=forecast_days, n_sims=n_sims)
@@ -339,11 +384,11 @@ with dashboard_tab:
                 st.write("No live headlines were returned right now. Try rerunning in a few minutes.")
 
         with page_tabs[3]:
-            st.write("Share the main app link with friends and have them pick the same ticker.")
+            st.write(f"Share the main app link and tell friends to search for {focus}.")
             st.code(APP_URL, language=None)
             st.link_button("Open app link", APP_URL, use_container_width=True)
             st.image(build_qr_code(APP_URL), caption="Scan to open on your phone", width=180)
 
-        st.caption("Details page cleaned up: better grouping, no nested tabs, and clearer sections.")
+        st.caption("Sidebar updated: one ticker search at a time, plus a saved list you can flip through.")
     else:
-        st.info("Enter your tickers on the left and click Run dashboard.")
+        st.info("Search one ticker on the left, add it to your list if you want, and click Run dashboard.")
