@@ -203,19 +203,24 @@ st.markdown("""
         padding: .42rem .66rem; border-radius: 999px; display: inline-block; margin: .18rem .22rem .18rem 0;
         background: #1b2638; border: 1px solid #314158; color: #e5edf8; font-size: .84rem;
     }
-    .ticker-pill {
-        display: inline-block;
-        padding: .45rem .7rem;
-        border-radius: 999px;
-        margin: .2rem .28rem .2rem 0;
-        font-size: .86rem;
-        font-weight: 700;
-        background: #162032;
-        border: 1px solid #314158;
-        color: #e5edf8;
+    .mover-up button {
+        background: #0b3b2e !important;
+        color: #86efac !important;
+        border: 1px solid #14532d !important;
     }
-    .ticker-up { color: #86efac; }
-    .ticker-down { color: #fca5a5; }
+    .mover-up button:hover {
+        background: #14532d !important;
+        color: #dcfce7 !important;
+    }
+    .mover-down button {
+        background: #4c1717 !important;
+        color: #fca5a5 !important;
+        border: 1px solid #7f1d1d !important;
+    }
+    .mover-down button:hover {
+        background: #7f1d1d !important;
+        color: #fee2e2 !important;
+    }
 
     .mover-link {
         display: inline-block;
@@ -364,15 +369,21 @@ movers = fetch_sp500_top_movers(limit=10)
 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
 st.subheader("Live S&P 500 movers")
 if not movers.empty:
-    mover_html = ""
-    for _, row in movers.iterrows():
+    mover_cols = st.columns(5)
+    for idx, (_, row) in enumerate(movers.iterrows()):
         ticker = row["Ticker"]
         pct = float(row["Change %"])
         label = f"{ticker} {'▲' if pct >= 0 else '▼'} {pct:+.2f}%"
-        css_class = "mover-link-up" if pct >= 0 else "mover-link-down"
-        mover_html += f'<a class="mover-link {css_class}" href="?ticker={ticker}">{label}</a>'
-    st.markdown(mover_html, unsafe_allow_html=True)
-    st.caption("Tap a mover to open that ticker's dashboard automatically. Latest available S&P 500 movers from the current market data feed.")
+        css_class = "mover-up" if pct >= 0 else "mover-down"
+        with mover_cols[idx % 5]:
+            st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
+            if st.button(label, key=f"mover_{ticker}", use_container_width=True):
+                st.session_state.active_ticker = ticker
+                st.session_state.auto_run = True
+                st.query_params["ticker"] = ticker
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+    st.caption("Tap a mover to switch the dashboard instantly in the same page.")
 else:
     st.caption("Top movers were not available right now.")
 st.markdown('</div>', unsafe_allow_html=True)
@@ -518,6 +529,6 @@ with dashboard_tab:
             st.link_button("Open direct ticker link", ticker_url, use_container_width=True)
             st.image(build_qr_code(ticker_url), caption="Scan to open this ticker on your phone", width=180)
 
-        st.caption("Now using one search box only, with a live movers strip across the top.")
+        st.caption("Now using one search box only, with same-page clickable movers across the top.")
     else:
         st.info("Search one ticker on the left and click Run dashboard.")

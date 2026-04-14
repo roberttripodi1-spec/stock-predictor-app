@@ -1,8 +1,10 @@
-# Stock Predictor Feature Sanitization Fix
+# Stock Predictor Same-Page Movers
 
-This version fixes the training crash by:
-- replacing inf and -inf values in engineered features
-- dropping remaining invalid rows before model training
-- validating that enough clean rows remain before fitting
+This version fixes the movers interaction:
+- movers are green/red buttons
+- clicking a mover stays in the same app page
+- clicking a mover auto-runs that ticker dashboard
+- no new tab or browser navigation behavior
 
-If the app hit a ValueError during model.fit, this is the fix for it.
+## Deploy
+Replace all 5 repo files with these versions and let Streamlit redeploy.
