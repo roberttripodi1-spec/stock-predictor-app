@@ -1,1 +1,1 @@
-Replace your movers section with the provided code snippet.
+Restores original green/red ticker text styling while keeping same-page click behavior.
