@@ -1,12 +1,10 @@
-# Stock Predictor Responsive UI
+# Stock Predictor Details Cleanup
 
-This version is optimized for both mobile and desktop:
-- cleaner hero header
-- simpler stacked layout
-- metrics grouped into compact rows
-- charts split from details and headlines
-- share actions easier to tap on mobile
-- tighter chart sizing and spacing
+This version cleans up the Details page by:
+- removing the nested tabs inside Details
+- grouping content into clear section cards
+- separating indicators, key levels, model summary, and feature importance
+- improving readability on both desktop and mobile
 
 ## Deploy
 Replace the repo files with these updated versions and let Streamlit redeploy.
