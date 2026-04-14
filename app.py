@@ -158,12 +158,19 @@ st.markdown("""
 <style>
     .stApp { background: linear-gradient(180deg, #0b1220 0%, #101828 100%); color: #f8fafc; }
     .main .block-container { padding-top: 0.85rem; padding-bottom: 1.5rem; max-width: 1180px; }
+    .mobile-stack { display: block; }
+    .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+    .gauge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+
 
     @media (max-width: 768px) {
         .main .block-container { padding-left: 0.65rem; padding-right: 0.65rem; padding-top: 0.65rem; }
         h1 { font-size: 1.7rem !important; }
         h2 { font-size: 1.2rem !important; }
         h3 { font-size: 1.02rem !important; }
+        .details-grid { grid-template-columns: 1fr !important; }
+        .gauge-grid { grid-template-columns: 1fr !important; }
+        .section-card { padding: 0.8rem 0.8rem !important; }
     }
 
     h1, h2, h3 { color: #f8fafc !important; letter-spacing: -0.02em; }
@@ -350,7 +357,7 @@ def build_simple_gauge(title: str, value: float, min_value: float, max_value: fl
         mode="gauge+number", value=value, title={"text": title},
         gauge={"axis": {"range": [min_value, max_value]}, "bar": {"color": "#60a5fa"}, "bgcolor": "#111827", "bordercolor": "#223046"}
     ))
-    fig.update_layout(height=175, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=8, r=8, t=28, b=0), font=dict(color="#e5edf8"))
+    fig.update_layout(height=150, template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=6, r=6, t=24, b=0), font=dict(color="#e5edf8"))
     return fig
 
 
@@ -438,61 +445,64 @@ with dashboard_tab:
             st.plotly_chart(build_projection_chart(summary, safe_attr(result, "latest_close", 0.0)), use_container_width=True)
 
         with page_tabs[1]:
-            left, right = st.columns([1, 1])
+            st.markdown('<div class="details-grid">', unsafe_allow_html=True)
 
-            with left:
-                st.markdown('<div class="section-card">', unsafe_allow_html=True)
-                st.subheader("Indicators")
-                gauge_cols = st.columns(2)
-                with gauge_cols[0]:
-                    st.plotly_chart(build_simple_gauge("RSI", max(0, min(100, safe_attr(result, "rsi_14", 50.0))), 0, 100), use_container_width=True)
-                with gauge_cols[1]:
-                    st.plotly_chart(build_simple_gauge("News Sentiment", max(-1, min(1, safe_attr(result, "sentiment_score", 0.0))), -1, 1), use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-card">', unsafe_allow_html=True)
+            st.subheader("Indicators")
+            st.markdown('<div class="gauge-grid">', unsafe_allow_html=True)
+            st.plotly_chart(build_simple_gauge("RSI", max(0, min(100, safe_attr(result, "rsi_14", 50.0))), 0, 100), use_container_width=True)
+            st.plotly_chart(build_simple_gauge("News Sentiment", max(-1, min(1, safe_attr(result, "sentiment_score", 0.0))), -1, 1), use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-                st.markdown('<div class="section-card">', unsafe_allow_html=True)
-                st.subheader("Key levels")
-                levels_df = pd.DataFrame({
-                    "Item": ["Support", "Resistance", "Stop loss", "Target 1", "Target 2"],
-                    "Value": [
-                        safe_attr(result, "support_level", 0.0),
-                        safe_attr(result, "resistance_level", 0.0),
-                        safe_attr(result, "stop_loss", 0.0),
-                        safe_attr(result, "target_1", 0.0),
-                        safe_attr(result, "target_2", 0.0),
-                    ],
-                })
-                levels_df["Value"] = levels_df["Value"].map(lambda x: f"${x:,.2f}")
-                st.dataframe(levels_df, use_container_width=True, hide_index=True)
-                st.markdown('<span class="detail-label">Flags</span>', unsafe_allow_html=True)
-                flags = safe_attr(result, "watchlist_flags", ["No major alert flags"])
-                flags_html = "".join([f'<span class="flag">{flag}</span>' for flag in flags])
-                st.markdown(flags_html, unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-card">', unsafe_allow_html=True)
+            st.subheader("Key levels")
+            levels_df = pd.DataFrame({
+                "Item": ["Support", "Resistance", "Stop loss", "Target 1", "Target 2"],
+                "Value": [
+                    safe_attr(result, "support_level", 0.0),
+                    safe_attr(result, "resistance_level", 0.0),
+                    safe_attr(result, "stop_loss", 0.0),
+                    safe_attr(result, "target_1", 0.0),
+                    safe_attr(result, "target_2", 0.0),
+                ],
+            })
+            levels_df["Value"] = levels_df["Value"].map(lambda x: f"${x:,.2f}")
+            st.dataframe(levels_df, use_container_width=True, hide_index=True)
+            st.markdown('<span class="detail-label">Flags</span>', unsafe_allow_html=True)
+            flags = safe_attr(result, "watchlist_flags", ["No major alert flags"])
+            flags_html = "".join([f'<span class="flag">{flag}</span>' for flag in flags])
+            st.markdown(flags_html, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            with right:
-                st.markdown('<div class="section-card">', unsafe_allow_html=True)
-                st.subheader("Model summary")
-                rsi = safe_attr(result, "rsi_14", 50.0)
-                notes = [
-                    f"Signal is {safe_attr(result, 'model_signal', 'WATCH')}.",
-                    f"RSI is {'high' if rsi > 70 else 'low' if rsi < 40 else 'middle-range'} at {rsi:.1f}.",
-                    f"Price is {'above' if safe_attr(result, 'latest_close', 0.0) > safe_attr(result, 'sma20', 0.0) else 'below'} the 20-day average.",
-                    f"MACD is {'above' if safe_attr(result, 'macd', 0.0) > safe_attr(result, 'macd_signal', 0.0) else 'below'} its signal line.",
-                    f"Earnings status is {safe_attr(result, 'earnings_flag', 'No date found')}.",
-                ]
-                st.markdown("<ul class='detail-list'>" + "".join([f"<li>{n}</li>" for n in notes]) + "</ul>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-card">', unsafe_allow_html=True)
+            st.subheader("Model summary")
+            rsi = safe_attr(result, "rsi_14", 50.0)
+            notes = [
+                f"Signal is {safe_attr(result, 'model_signal', 'WATCH')}.",
+                f"RSI is {'high' if rsi > 70 else 'low' if rsi < 40 else 'middle-range'} at {rsi:.1f}.",
+                f"Price is {'above' if safe_attr(result, 'latest_close', 0.0) > safe_attr(result, 'sma20', 0.0) else 'below'} the 20-day average.",
+                f"MACD is {'above' if safe_attr(result, 'macd', 0.0) > safe_attr(result, 'macd_signal', 0.0) else 'below'} its signal line.",
+                f"Earnings status is {safe_attr(result, 'earnings_flag', 'No date found')}.",
+            ]
+            st.markdown("<ul class='detail-list'>" + "".join([f"<li>{n}</li>" for n in notes]) + "</ul>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-                st.markdown('<div class="section-card">', unsafe_allow_html=True)
-                st.subheader("Feature importance")
-                feature_df = pd.DataFrame(safe_attr(result, "top_features", []), columns=["Feature", "Importance"])
-                if not feature_df.empty:
-                    feature_df["Importance"] = feature_df["Importance"].map(lambda x: f"{x:.3f}")
-                    st.dataframe(feature_df, use_container_width=True, hide_index=True)
-                else:
-                    st.write("No feature importance data available.")
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-card">', unsafe_allow_html=True)
+            st.subheader("Feature importance")
+            feature_df = pd.DataFrame(safe_attr(result, "top_features", []), columns=["Feature", "Importance"])
+            if not feature_df.empty:
+                feature_df["Importance"] = feature_df["Importance"].map(lambda x: f"{x:.3f}")
+                st.dataframe(feature_df, use_container_width=True, hide_index=True)
+            else:
+                st.write("No feature importance data available.")
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with page_tabs[2]:
             if live_headlines:
