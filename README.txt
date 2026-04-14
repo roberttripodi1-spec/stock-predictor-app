@@ -1,1 +1,1 @@
-Restores original green/red ticker text styling while keeping same-page click behavior.
+Paste this CSS inside your main st.markdown(<style>...</style>) block in app.py to force green/red colors.
