@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Iterable
 
 import numpy as np
@@ -173,9 +172,6 @@ def _safe_to_datetime(value):
 
 
 def get_earnings_info(ticker: str) -> dict:
-    """
-    Uses yfinance calendar / earnings date fields when available.
-    """
     out = {
         "earnings_date": None,
         "days_to_earnings": None,
@@ -193,29 +189,11 @@ def get_earnings_info(ticker: str) -> dict:
             for value in cal.values():
                 possible.append(value)
 
-        for attr in ["earnings_dates", "earningsDate"]:
-            try:
-                value = getattr(tk, attr, None)
-                if value is not None:
-                    possible.append(value)
-            except Exception:
-                pass
-
         parsed = None
         for value in possible:
-            if isinstance(value, pd.DataFrame) and not value.empty:
-                idx = value.index[0]
-                parsed = _safe_to_datetime(idx)
-                if parsed is not None:
-                    break
-            elif isinstance(value, (list, tuple)) and len(value) > 0:
-                parsed = _safe_to_datetime(value[0])
-                if parsed is not None:
-                    break
-            else:
-                parsed = _safe_to_datetime(value)
-                if parsed is not None:
-                    break
+            parsed = _safe_to_datetime(value)
+            if parsed is not None:
+                break
 
         if parsed is not None:
             now = pd.Timestamp.now(tz="UTC")
@@ -237,9 +215,6 @@ def get_earnings_info(ticker: str) -> dict:
 
 
 def get_news_sentiment(ticker: str, max_items: int = 8) -> dict:
-    """
-    Lightweight headline sentiment from Yahoo-finance-linked news via yfinance.
-    """
     result = {
         "sentiment_score": 0.0,
         "sentiment_label": "Neutral",
@@ -405,7 +380,7 @@ def train_predict_for_ticker(ticker: str, period: str = "5y", threshold: float =
 
     latest_close = float(data["Close"].iloc[-1])
     latest_sma20 = float(data["sma_20"].iloc[-1])
-    latest_sma50 = float(data["sma_50"].iloc[-1])
+    latest_sma50 = float(data["sma_50"].iloc[-1]) if "sma_50" in data.columns else latest_sma20
     latest_rsi = float(data["rsi_14"].iloc[-1])
     latest_macd = float(data["macd"].iloc[-1])
     latest_macd_signal = float(data["signal"].iloc[-1])
