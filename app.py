@@ -9,8 +9,9 @@ import plotly.graph_objects as go
 import qrcode
 import requests
 import streamlit as st
+import yfinance as yf
 
-from predictor import generate_projection_chart_data, screen_tickers, train_predict_for_ticker
+from predictor import generate_projection_chart_data, train_predict_for_ticker
 
 
 APP_URL = "https://stock-predictor-app-chqgww4vn5xvfzytgesxvv.streamlit.app/"
@@ -53,16 +54,67 @@ def build_qr_code(url: str) -> bytes:
     return buf.getvalue()
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_sp500_top_movers(limit: int = 8) -> pd.DataFrame:
+    """
+    Returns top movers in the S&P 500 using the latest available Yahoo data.
+    This is near-real-time, not exchange-level streaming.
+    """
+    try:
+        table = pd.read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")[0]
+        tickers = (
+            table["Symbol"]
+            .astype(str)
+            .str.replace(".", "-", regex=False)
+            .dropna()
+            .tolist()
+        )
+        tickers = tickers[:503]
+
+        data = yf.download(
+            tickers=tickers,
+            period="2d",
+            interval="1d",
+            group_by="ticker",
+            auto_adjust=False,
+            progress=False,
+            threads=True,
+        )
+
+        rows = []
+        for ticker in tickers:
+            try:
+                close = data[ticker]["Close"].dropna()
+                if len(close) >= 2:
+                    prev_close = float(close.iloc[-2])
+                    last_close = float(close.iloc[-1])
+                    pct = ((last_close / prev_close) - 1.0) * 100
+                    rows.append({
+                        "Ticker": ticker,
+                        "Last": last_close,
+                        "Change %": pct,
+                    })
+            except Exception:
+                continue
+
+        movers = pd.DataFrame(rows)
+        if movers.empty:
+            return movers
+
+        movers["Abs Move"] = movers["Change %"].abs()
+        movers = movers.sort_values("Abs Move", ascending=False).head(limit).copy()
+        movers = movers.drop(columns=["Abs Move"])
+        movers["Direction"] = movers["Change %"].apply(lambda x: "Up" if x >= 0 else "Down")
+        return movers.reset_index(drop=True)
+    except Exception:
+        return pd.DataFrame(columns=["Ticker", "Last", "Change %", "Direction"])
+
+
 st.set_page_config(
     page_title="Stock Predictor",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-if "watchlist" not in st.session_state:
-    st.session_state.watchlist = ["AAPL"]
-if "current_ticker" not in st.session_state:
-    st.session_state.current_ticker = "AAPL"
 
 st.markdown("""
 <style>
@@ -75,7 +127,7 @@ st.markdown("""
         h3 { font-size: 1.05rem !important; }
     }
     h1, h2, h3 { color: #f8fafc !important; letter-spacing: -0.02em; }
-    .hero, .section-card {
+    .hero, .section-card, .movers-card {
         padding: 0.95rem 1rem; border: 1px solid #223046; border-radius: 16px; background: #111827;
         box-shadow: 0 6px 20px rgba(0,0,0,0.18); margin-bottom: 0.9rem;
     }
@@ -84,6 +136,19 @@ st.markdown("""
         padding: .42rem .66rem; border-radius: 999px; display: inline-block; margin: .18rem .22rem .18rem 0;
         background: #1b2638; border: 1px solid #314158; color: #e5edf8; font-size: .84rem;
     }
+    .ticker-pill {
+        display: inline-block;
+        padding: .45rem .7rem;
+        border-radius: 999px;
+        margin: .2rem .28rem .2rem 0;
+        font-size: .86rem;
+        font-weight: 700;
+        background: #162032;
+        border: 1px solid #314158;
+        color: #e5edf8;
+    }
+    .ticker-up { color: #86efac; }
+    .ticker-down { color: #fca5a5; }
     .headline-card {
         padding: .8rem .9rem; border: 1px solid #223046; border-radius: 12px; background: #0f172a; margin-bottom: .6rem;
     }
@@ -112,9 +177,7 @@ st.markdown("""
     }
     .stTabs [aria-selected="true"] { background: #24324a !important; }
 
-    section[data-testid="stSidebar"] {
-        background: #0f172a; border-right: 1px solid #1f2a3d;
-    }
+    section[data-testid="stSidebar"] { background: #0f172a; border-right: 1px solid #1f2a3d; }
     section[data-testid="stSidebar"]::before {
         content: "Search tickers";
         display: block;
@@ -201,6 +264,20 @@ with header_left:
 with header_right:
     st.link_button("📲 Share App", APP_URL, use_container_width=True)
 
+movers = fetch_sp500_top_movers(limit=10)
+st.markdown('<div class="movers-card">', unsafe_allow_html=True)
+st.subheader("Live S&P 500 movers")
+if not movers.empty:
+    pill_html = ""
+    for _, row in movers.iterrows():
+        cls = "ticker-up" if row["Change %"] >= 0 else "ticker-down"
+        pill_html += f'<span class="ticker-pill">{row["Ticker"]} <span class="{cls}">{row["Change %"]:+.2f}%</span></span>'
+    st.markdown(pill_html, unsafe_allow_html=True)
+    st.caption("Latest available move from the current market data feed. Refresh to update.")
+else:
+    st.caption("Top movers were not available right now.")
+st.markdown('</div>', unsafe_allow_html=True)
+
 dashboard_tab, share_tab = st.tabs(["Dashboard", "Share"])
 
 with share_tab:
@@ -216,42 +293,8 @@ with share_tab:
 
 with dashboard_tab:
     with st.sidebar:
-        st.markdown("<div class='muted'>Look up one ticker at a time and build a watchlist you can flip through.</div>", unsafe_allow_html=True)
-        search_ticker = st.text_input("Search ticker", value=st.session_state.current_ticker).strip().upper()
-
-        add_col, clear_col = st.columns(2)
-        with add_col:
-            if st.button("Add to list", use_container_width=True):
-                if search_ticker and search_ticker not in st.session_state.watchlist:
-                    st.session_state.watchlist.append(search_ticker)
-                if search_ticker:
-                    st.session_state.current_ticker = search_ticker
-        with clear_col:
-            if st.button("Remove current", use_container_width=True):
-                cur = st.session_state.current_ticker
-                if cur in st.session_state.watchlist and len(st.session_state.watchlist) > 1:
-                    st.session_state.watchlist.remove(cur)
-                    st.session_state.current_ticker = st.session_state.watchlist[0]
-
-        st.selectbox(
-            "Saved list",
-            options=st.session_state.watchlist,
-            index=st.session_state.watchlist.index(st.session_state.current_ticker) if st.session_state.current_ticker in st.session_state.watchlist else 0,
-            key="selected_watchlist_ticker",
-        )
-        st.session_state.current_ticker = st.session_state.selected_watchlist_ticker
-
-        nav_prev, nav_next = st.columns(2)
-        current_index = st.session_state.watchlist.index(st.session_state.current_ticker)
-        with nav_prev:
-            if st.button("◀ Previous", use_container_width=True):
-                st.session_state.current_ticker = st.session_state.watchlist[(current_index - 1) % len(st.session_state.watchlist)]
-                st.session_state.selected_watchlist_ticker = st.session_state.current_ticker
-        with nav_next:
-            if st.button("Next ▶", use_container_width=True):
-                st.session_state.current_ticker = st.session_state.watchlist[(current_index + 1) % len(st.session_state.watchlist)]
-                st.session_state.selected_watchlist_ticker = st.session_state.current_ticker
-
+        st.markdown("<div class='muted'>Search one ticker at a time.</div>", unsafe_allow_html=True)
+        search_ticker = st.text_input("Search ticker", value="AAPL").strip().upper()
         period = st.selectbox("History period", options=["1y", "2y", "5y", "10y"], index=2)
         threshold = st.slider("Signal threshold", min_value=0.50, max_value=0.75, value=0.55, step=0.01)
         forecast_days = st.slider("Projection days", min_value=5, max_value=60, value=20, step=5)
@@ -259,25 +302,7 @@ with dashboard_tab:
         run = st.button("Run dashboard", use_container_width=True)
 
     if run:
-        focus = st.session_state.current_ticker
-        watchlist = st.session_state.watchlist
-
-        with st.spinner("Loading market view..."):
-            df = screen_tickers(watchlist, period=period, threshold=threshold)
-
-        st.subheader("Watchlist")
-        display_df = df.copy()
-        for col in ["Latest Close"]:
-            if col in display_df.columns:
-                display_df[col] = display_df[col].map(lambda x: f"${x:,.2f}" if pd.notnull(x) else "")
-        for col in ["Up Probability", "Holdout Accuracy", "20D Momentum", "Strategy Return", "Buy & Hold Return"]:
-            if col in display_df.columns:
-                display_df[col] = display_df[col].map(lambda x: f"{x:.2%}" if pd.notnull(x) else "")
-        for col in ["RSI", "Volume Ratio"]:
-            if col in display_df.columns:
-                display_df[col] = display_df[col].map(lambda x: f"{x:,.2f}" if pd.notnull(x) else "")
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
-        st.caption(f'Viewing: {focus} • Saved list: {", ".join(watchlist)}')
+        focus = search_ticker or "AAPL"
 
         result = train_predict_for_ticker(focus, period=period, threshold=threshold)
         summary, _ = generate_projection_chart_data(result, forecast_days=forecast_days, n_sims=n_sims)
@@ -389,6 +414,6 @@ with dashboard_tab:
             st.link_button("Open app link", APP_URL, use_container_width=True)
             st.image(build_qr_code(APP_URL), caption="Scan to open on your phone", width=180)
 
-        st.caption("Sidebar updated: one ticker search at a time, plus a saved list you can flip through.")
+        st.caption("Now using one search box only, with a live movers strip across the top.")
     else:
-        st.info("Search one ticker on the left, add it to your list if you want, and click Run dashboard.")
+        st.info("Search one ticker on the left and click Run dashboard.")
