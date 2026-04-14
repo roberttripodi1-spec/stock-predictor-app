@@ -55,57 +55,110 @@ def build_qr_code(url: str) -> bytes:
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def fetch_sp500_top_movers(limit: int = 8) -> pd.DataFrame:
+def fetch_sp500_symbols() -> list[str]:
     """
-    Returns top movers in the S&P 500 using the latest available Yahoo data.
-    This is near-real-time, not exchange-level streaming.
+    Pull S&P 500 symbols from a stable public CSV mirror.
     """
+    urls = [
+        "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/master/data/constituents.csv",
+        "https://raw.githubusercontent.com/plotly/datasets/master/s-and-p-500-companies.csv",
+    ]
+    for url in urls:
+        try:
+            df = pd.read_csv(url)
+            for col in ["Symbol", "symbol"]:
+                if col in df.columns:
+                    symbols = (
+                        df[col]
+                        .astype(str)
+                        .str.replace(".", "-", regex=False)
+                        .dropna()
+                        .unique()
+                        .tolist()
+                    )
+                    if symbols:
+                        return symbols
+        except Exception:
+            continue
+    return []
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_sp500_top_movers(limit: int = 10) -> pd.DataFrame:
+    """
+    Returns top movers in the S&P 500 using latest available daily data.
+    Uses chunked downloads for better reliability on Streamlit.
+    """
+    symbols = fetch_sp500_symbols()
+    if not symbols:
+        return pd.DataFrame(columns=["Ticker", "Last", "Change %", "Direction"])
+
+    rows = []
+
+    def chunks(seq, size):
+        for i in range(0, len(seq), size):
+            yield seq[i:i + size]
+
     try:
-        table = pd.read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")[0]
-        tickers = (
-            table["Symbol"]
-            .astype(str)
-            .str.replace(".", "-", regex=False)
-            .dropna()
-            .tolist()
-        )
-        tickers = tickers[:503]
-
-        data = yf.download(
-            tickers=tickers,
-            period="2d",
-            interval="1d",
-            group_by="ticker",
-            auto_adjust=False,
-            progress=False,
-            threads=True,
-        )
-
-        rows = []
-        for ticker in tickers:
+        for group in chunks(symbols, 100):
             try:
-                close = data[ticker]["Close"].dropna()
-                if len(close) >= 2:
+                data = yf.download(
+                    tickers=" ".join(group),
+                    period="5d",
+                    interval="1d",
+                    auto_adjust=False,
+                    progress=False,
+                    threads=True,
+                    group_by="ticker",
+                )
+            except Exception:
+                continue
+
+            if data is None or len(data) == 0:
+                continue
+
+            for ticker in group:
+                try:
+                    if isinstance(data.columns, pd.MultiIndex):
+                        if ticker not in data.columns.get_level_values(0):
+                            continue
+                        ticker_df = data[ticker].copy()
+                    else:
+                        # Single-ticker fallback shape
+                        ticker_df = data.copy()
+
+                    if "Close" not in ticker_df.columns:
+                        continue
+
+                    close = pd.to_numeric(ticker_df["Close"], errors="coerce").dropna()
+                    if len(close) < 2:
+                        continue
+
                     prev_close = float(close.iloc[-2])
                     last_close = float(close.iloc[-1])
-                    pct = ((last_close / prev_close) - 1.0) * 100
+                    if prev_close <= 0:
+                        continue
+
+                    pct = ((last_close / prev_close) - 1.0) * 100.0
                     rows.append({
                         "Ticker": ticker,
                         "Last": last_close,
                         "Change %": pct,
                     })
-            except Exception:
-                continue
+                except Exception:
+                    continue
 
         movers = pd.DataFrame(rows)
         if movers.empty:
-            return movers
+            return pd.DataFrame(columns=["Ticker", "Last", "Change %", "Direction"])
 
+        movers = movers.drop_duplicates(subset=["Ticker"]).copy()
         movers["Abs Move"] = movers["Change %"].abs()
         movers = movers.sort_values("Abs Move", ascending=False).head(limit).copy()
-        movers = movers.drop(columns=["Abs Move"])
         movers["Direction"] = movers["Change %"].apply(lambda x: "Up" if x >= 0 else "Down")
+        movers = movers.drop(columns=["Abs Move"])
         return movers.reset_index(drop=True)
+
     except Exception:
         return pd.DataFrame(columns=["Ticker", "Last", "Change %", "Direction"])
 
@@ -273,7 +326,7 @@ if not movers.empty:
         cls = "ticker-up" if row["Change %"] >= 0 else "ticker-down"
         pill_html += f'<span class="ticker-pill">{row["Ticker"]} <span class="{cls}">{row["Change %"]:+.2f}%</span></span>'
     st.markdown(pill_html, unsafe_allow_html=True)
-    st.caption("Latest available move from the current market data feed. Refresh to update.")
+    st.caption("Latest available S&P 500 movers from the current market data feed. Refresh to update.")
 else:
     st.caption("Top movers were not available right now.")
 st.markdown('</div>', unsafe_allow_html=True)
@@ -356,7 +409,7 @@ with dashboard_tab:
                 levels_df["Value"] = levels_df["Value"].map(lambda x: f"${x:,.2f}")
                 st.dataframe(levels_df, use_container_width=True, hide_index=True)
                 st.markdown('<span class="detail-label">Flags</span>', unsafe_allow_html=True)
-                flags = safe_attr(result, "_flags", ["No major alert flags"])
+                flags = safe_attr(result, "watchlist_flags", ["No major alert flags"])
                 flags_html = "".join([f'<span class="flag">{flag}</span>' for flag in flags])
                 st.markdown(flags_html, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)

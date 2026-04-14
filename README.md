@@ -1,7 +1,9 @@
-# Stock Predictor - Single Search Only
+# Stock Predictor Movers Fix
 
-This version removes ALL saved list/watchlist functionality.
+This version fixes the top movers strip by:
+- using a more reliable public S&P 500 symbol source
+- downloading quotes in chunks instead of one giant request
+- handling Streamlit/yfinance failures more safely
 
-- one ticker search only
-- no saved list
-- cleaner and simpler flow
+## Deploy
+Replace the repo files with these updated versions and let Streamlit redeploy.
